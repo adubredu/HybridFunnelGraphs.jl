@@ -1,13 +1,28 @@
 #TODO: Adds continuous constraints
-function add_continuous_constraints!(hybrid_action)
+# adds regions and literals to prec and eff 
+function build_funnel!(hybrid_action)
     name = hybrid_action.name 
     if name == :pick 
-
+        
     elseif name == :place 
 
     elseif name == :move 
 
     end
+end
+
+function build_action(act, domain, vs)
+    if isdiscrete(act)
+        a = Discrete_Action(act.name)
+        a.pos_prec, a.neg_prec = get_preconditions(domain, act, vs)
+        a.pos_eff, a.neg_eff = get_effects(domain, act, vs) 
+        a.params = vs
+    else
+        a = Funnel(act.name)
+        build_funnel!(a)
+    end
+    return a
+
 end
 
 
@@ -17,11 +32,7 @@ function get_all_actions(domain, problem)
     for act in values(PDDL.get_actions(domain))
         vars = act.args   
         for vs in collect(permutations(obs, length(vars)))
-            a = HybridAction(act.name)
-            a.pos_prec, a.neg_prec = get_preconditions(domain, act, vs)
-            a.pos_eff, a.neg_eff = get_effects(domain, act, vs) 
-            a.params = vs
-            add_continuous_constraints!(a)
+            a = build_action(act, domain, vs)
             push!(actions, a)
         end
     end

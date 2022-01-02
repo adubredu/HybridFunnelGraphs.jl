@@ -11,7 +11,27 @@ struct Continuous_condition
     þ
 end
 
-mutable struct HybridAction 
+
+struct Region 
+    xᵣ::Vector{Float64}
+    yᵣ::Vector{Float64}
+    θ::Float64
+end
+
+
+mutable struct Discrete_Action 
+    name
+    args
+    pos_prec 
+    neg_prec 
+    pos_eff 
+    neg_eff      
+    function Discrete_Action(name)
+        new(name, [], [], [], [], [])
+    end
+end
+
+mutable struct Funnel 
     name 
     params 
     pos_prec 
@@ -20,23 +40,21 @@ mutable struct HybridAction
     dynamics 
     pos_eff 
     neg_eff 
-    function HybridAction(name)
+    function Funnel(name)
         new(name, [],[],[],[],[],[],[])
     end
 
 end
 
-mutable struct HybridNoOp 
+mutable struct NoOp  
     name 
-    params 
+    args
     pos_prec 
     neg_prec 
-    continuous_prec::Vector{Continuous_condition} 
-    dynamics 
     pos_eff 
     neg_eff 
-    function HybridNoOp(prop)
-        new(:NoOp, [],[prop],[],[],[],[prop],[])
+    function NoOp(prop)
+        new(:NoOp, [], [prop], [], [prop], [])
     end
-
 end
+
