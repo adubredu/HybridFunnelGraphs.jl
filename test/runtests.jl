@@ -1,6 +1,6 @@
-using hpg
+using HybridFunnelGraphs
 using Test
 
-@testset "hpg.jl" begin
+@testset "HybridFunnelGraphs.jl" begin
     # Write your tests here.
 end

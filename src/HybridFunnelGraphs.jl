@@ -1,4 +1,4 @@
-module hpg
+module HybridFunnelGraphs
 
 # Write your package code here.
 
