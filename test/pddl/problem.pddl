@@ -1,8 +1,8 @@
 (define (problem build) (:domain westbrick)
-(:objects  )
+(:objects  b1)
 
-(:init )
+(:init (handempty) (clear b1))
 
-(:goal (and ))
+(:goal (and (holding b1)  ))
  
 )

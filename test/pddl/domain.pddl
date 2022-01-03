@@ -1,29 +1,31 @@
 (define (domain westbrick)
 (:requirements :strips :equality)
-(:predicates (clear ?obj)
-             (objectat ?loc)
+(:predicates (clear ?obj) 
              (handempty)
-             (holding ?obj)
-             (robotat ?loc))
+             (holding ?obj)) 
 
 (:action pick
-    :parameters (?obj ?loc)
-    :precondition (and (objectat ?loc) (handempty) (clear ?obj))
+    :parameters (?obj)
+    :precondition (and  (handempty) (clear ?obj))
     :effect (and  (holding ?obj) 
-                  (not (clear ?obj)) (not (handempty)) (not (objectat ?loc))))
+                  (not (clear ?obj)) (not (handempty))))
 
 (:action place
-    :parameters (?obj ?loc)
-    :precondition (and (holding ?obj) (not (objectat ?loc)))
-    :effect (and (handempty) (clear ?obj) (objectat ?loc)
+    :parameters (?obj)
+    :precondition (and (holding ?obj) )
+    :effect (and (handempty) (clear ?obj) 
                  (not (holding ?obj)))
 )
 
 (:action move
-    :parameters (?loc)
-    :precondition (and (not (robotat ?loc)))
-    :effect (and (robotat ?loc))
+    :parameters ()
+    :precondition (and (handempty))
+    :effect (and (handempty))
 )
 
-
+(:action move-holding
+    :parameters (?obj)
+    :precondition (and (holding ?obj))
+    :effect (and (holding ?obj))
+)
 )
