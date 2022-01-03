@@ -1,9 +1,9 @@
 #TODO: Adds continuous constraints
 # adds regions and literals to prec and eff 
-function build_funnel!(hybrid_action)
+function build_funnel!(hybrid_action, params)
     name = hybrid_action.name 
     if name == :pick 
-        
+
     elseif name == :place 
 
     elseif name == :move 
@@ -19,7 +19,7 @@ function build_action(act, domain, vs)
         a.params = vs
     else
         a = Funnel(act.name)
-        build_funnel!(a)
+        build_funnel!(a, vs)
     end
     return a
 
@@ -89,6 +89,8 @@ function fill_proposition(proposition, objs)
     prop = Compound(Symbol(proposition.name), objs)
     return prop
 end
+
+#=
 
 #TODO: Augment with continuous constraint checking
 function goal_reached!(domain, problem, graph)
@@ -269,3 +271,4 @@ function create_graph(domain, problem; max_levels=10)
     graph.goalprops = get_goal_propositions(domain, problem) 
     return graph  
 end
+=#
