@@ -19,8 +19,9 @@ function expand!(graph, domain, problem, constraints)
     k = graph.num_levels
     if k ≥ 2
         graph.μprops[k] = get_proposition_mutexes(graph, k)
-    end
+    end 
     actions = get_all_actions(domain, problem)
+    action_list=[]
     for act in actions 
         if is_applicable(act, graph, constraints, k)
             instantiated_action = compute_funnel(act, graph, constraints, k)
@@ -32,6 +33,7 @@ function expand!(graph, domain, problem, constraints)
             if !isempty(propositions[:continuous]) 
                 push!(graph.props[k+1][:continuous], propositions[:continuous]...) 
             end
+            push!(action_list, instantiated_action)
         end
     end
     for prop in graph.props[k][:discrete] 
@@ -314,9 +316,90 @@ end
 
 
 function get_proposition_mutexes(graph, level)
+    props = vcat(graph.props[level][:discrete], graph.props[level][:continuous])
+    μprops=[]
+    actions_with_p = Set()
+    actions_with_q = Set()
+    action_list = graph.acts[level-1]
+    for a in action_list
+        for [p, q] in collect(permutations(props, 2))
+            if p in a.pos_eff && q in a.neg_eff 
+                push!(μprops, [p,q])
+            end
+        end
+        if p in a.pos_eff push!(actions_with_p, a) end 
+        if q in a.pos_eff push!(actions_with_q, a) end
+    end
+
+    for [p, q] in collect(permutations(graph.props[level][:continuous], 2))
+        if !intersect_regions([p],[q]) push!(μprops, [p,q]) end 
+    end
+
+    μacts = graph.μacts[level-1]
+    for p_action in actions_with_p 
+        for q_action in actions_with_q
+            if p_action != q_action
+                if [p_action, q_action] in μacts 
+                    push!(μprops, [p,q])
+                end
+            end
+        end
+    end
+    return μprops 
+end
+
+
+function action_pairs_are_mutex(a, b, graph, level, μprops) 
+    #1
+    if !isempty(intersect(a.neg_eff, union(b.pos_prec, b.pos_eff))) ||
+        !isempty(intersect(b.neg_eff, union(a.pos_prec, a.pos_eff)))
+         return true
+    end
+    if !isempty(μprops)
+        for μ in μprops 
+            p = μ[1]
+            q = μ[2]
+            if typeof(p) != Region && typeof(q) != Region 
+                if (p in a.pos_prec && q in b.pos_prec)
+                    return true
+                end
+            end 
+        end
+    end
+    #2
+    μall = true
+    for r1 in a.continuous_prec
+        for r2 in b.continuous_prec
+            if r1 != r2 
+                if !([r1, r2] in μprops) μall = false end
+            end
+        end
+    end
+    if !μall return false end 
+    #3
+    for r1 in a.continuous_prec
+        μall = false 
+        for d2 in b.pos_prec 
+            if [r1, d2] in μprops  μall = true end
+        end
+        if !μall return false end
+    end
+    #have to add resolved_intersection mutex conditions at some point
+    return false
 end
 
 
 function get_action_mutexes(graph, level)
+    actions = graph.acts[level]
+    μacts = []
+    μprops = graph.μprops[level]
+    for [a, b] in collect(permutations(actions, 2)) 
+        if action_pairs_are_mutex(a, b, graph, level, μprops)
+            push!(μacts, [a, b])
+        end
+        
+    end
 end
+
+ 
 
