@@ -60,6 +60,7 @@ function get_init_propositions(domain, problem)
     return init_props
 end
 
+
 function get_goal_propositions(domain, problem)
     goal_props = Dict()
     goal_props[:discrete] = goalstate(domain, problem).facts
@@ -104,8 +105,9 @@ function goal_reached(graph, domain, problem)
     return goal_found
 end
 
+
 function get_min_max(region)
-    x=[0,0]; y=[0,0]
+    x=[0.,0.]; y=[0.,0.]
     x[1] = region.r[1].þ
     x[2] = region.r[2].þ
     y[1] = region.r[3].þ
@@ -113,6 +115,7 @@ function get_min_max(region)
     return x,y
 
 end
+
 
 function overlaps(x1r, y1r, x2r, y2r)
     if x1r[2] < x2r[1] || x2r[2] < x1r[1] || y1r[2] < y2r[1] || y2r[2] < y1r[1]
@@ -237,6 +240,8 @@ function compute_funnel(action, graph, constraints, level)
     regions = graph.props[level][:continuous] 
     xyr_init = get_min_max(regions[1])
     xyo_init = get_min_max(regions[2]) 
+    a = action
+    d = a.dynamics.d
     if action.name == :move 
         xmin = xyr_init[1][1] + d*a.dynamics.vx_range[1]
         xmax = xyr_init[1][2] + d*a.dynamics.vx_range[2]
@@ -322,7 +327,7 @@ function get_proposition_mutexes(graph, level)
     actions_with_q = Set()
     action_list = graph.acts[level-1]
     for a in action_list
-        for [p, q] in collect(permutations(props, 2))
+        for (p,q) in collect(permutations(props, 2)) 
             if p in a.pos_eff && q in a.neg_eff 
                 push!(μprops, [p,q])
             end
@@ -330,11 +335,9 @@ function get_proposition_mutexes(graph, level)
         if p in a.pos_eff push!(actions_with_p, a) end 
         if q in a.pos_eff push!(actions_with_q, a) end
     end
-
-    for [p, q] in collect(permutations(graph.props[level][:continuous], 2))
+    for (p,q) in collect(permutations(graph.props[level][:continuous], 2)) 
         if !intersect_regions([p],[q]) push!(μprops, [p,q]) end 
     end
-
     μacts = graph.μacts[level-1]
     for p_action in actions_with_p 
         for q_action in actions_with_q
@@ -349,7 +352,7 @@ function get_proposition_mutexes(graph, level)
 end
 
 
-function action_pairs_are_mutex(a, b, graph, level, μprops) 
+function action_pairs_are_mutex(a, b, μprops) 
     #1
     if !isempty(intersect(a.neg_eff, union(b.pos_prec, b.pos_eff))) ||
         !isempty(intersect(b.neg_eff, union(a.pos_prec, a.pos_eff)))
@@ -393,12 +396,12 @@ function get_action_mutexes(graph, level)
     actions = graph.acts[level]
     μacts = []
     μprops = graph.μprops[level]
-    for [a, b] in collect(permutations(actions, 2)) 
-        if action_pairs_are_mutex(a, b, graph, level, μprops)
+    for (a, b) in collect(permutations(actions, 2)) 
+        if action_pairs_are_mutex(a, b, μprops)
             push!(μacts, [a, b])
-        end
-        
+        end 
     end
+    return μacts
 end
 
  

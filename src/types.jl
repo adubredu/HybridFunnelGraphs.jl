@@ -18,7 +18,7 @@ end
 
 
 struct Region 
-    name::String
+    name 
     r::Vector{Ineq}
     θ::Float64
 end
