@@ -134,6 +134,105 @@ function regions_intersect(regions1, regions2)
 end 
 
 
+function fill_proposition(proposition, objs) 
+    if isempty(objs) objs=Term[] end
+    prop = Compound(Symbol(proposition.name), objs)
+    return prop
+end
+
+
+function get_preconditions(domain, act, vars)
+    action = PDDL.get_action(domain, act.name)
+    vardict = Dict()
+    [vardict[action.args[i]] = vars[i] for i=1:length(action.args)]
+    pos, neg = [], []
+    for pre in action.precond.args 
+        if pre.name == :not 
+            vs = []
+            [push!(vs, vardict[arg]) for arg in pre.args[1].args]
+            prop = fill_proposition(pre.args[1], vs)
+            push!(neg, prop)
+        else 
+            vs = []
+            [push!(vs, vardict[arg]) for arg in pre.args]
+            prop = fill_proposition(pre, vs)
+            push!(pos, prop)
+        end
+    end
+    return pos, neg
+end
+
+
+function get_effects(domain, act, vars)
+    action = PDDL.get_action(domain, act.name)
+    vardict = Dict()
+    [vardict[action.args[i]] = vars[i] for i=1:length(action.args)]
+    pos, neg = [], []
+    for eff in action.effect.args 
+        if eff.name == :not 
+            vs = []
+            [push!(vs, vardict[arg]) for arg in eff.args[1].args]
+            prop = fill_proposition(eff.args[1], vs)
+            push!(neg, prop)
+        else 
+            vs = []
+            [push!(vs, vardict[arg]) for arg in eff.args]
+            prop = fill_proposition(eff, vs)
+            push!(pos, prop)
+        end
+    end
+    return pos, neg
+end
+
+
+function get_all_actions(domain, problem)
+    actions = []
+    obs = collect(PDDL.get_objects(problem))
+    for act in values(PDDL.get_actions(domain))
+        vars = act.args
+        if act.name != :move
+            for vs in collect(permutations(obs, length(vars)))
+                a = Funnel(act.name)
+                a.pos_prec, a.neg_prec = get_preconditions(domain, act, vs)
+                a.pos_eff, a.neg_eff = get_preconditions(domain, act, vs)
+                a.params = vs 
+                if act.name == :pick #make more general. preferrably  from prob.pddl
+                    push!(a.continuous_prec, Region(:robot, [Ineq(1,0,0,20), Ineq(-1,0,0,21), Ineq(0,1,0,20), Ineq(0,-1,0,21)], 0.0))
+                    a.is_continuous = false
+
+                elseif act.name == :place #make more general later
+                    push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0))
+                    push!(a.continuous_prec, Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0))
+                    a.is_continuous = false
+
+                elseif act.name == :move_holding #compute funnel at instantitation
+                    push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
+                    a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-5, 5], 1)
+                    a.is_continuous = true
+                end
+                push!(actions, a)
+            end
+        else 
+            a = Funnel(act.name)
+            push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
+            a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-5, 5], 1)
+            a.is_continuous = true
+            push!(actions, a)
+        end
+    end
+    return actions
+end
+
+#TODO: get init position ranges from problem.pddl
+function instantiate_action(action, graph, constraints, level)  
+    
+end
+
+
+function get_noop_action(proposition)
+end
+
+
 function get_proposition_mutexes(graph, level)
 end
 
@@ -142,15 +241,7 @@ function get_action_mutexes(graph, level)
 end
 
 
-function get_all_actions(domain, problem)
-end
-
-
 function is_applicable(action, graph, constraints, level)
-end
-
-
-function instantiate_action(action, graph, constraints, level)
 end
 
 
@@ -159,9 +250,5 @@ end
 
 
 function is_continuous_proposition(proposition)
-end
-
-
-function get_noop_action(proposition)
 end
 

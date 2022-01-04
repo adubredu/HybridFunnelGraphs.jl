@@ -1,7 +1,10 @@
 # x(t+1) = A*x(t) + B*u(t)
 struct Dynamics 
     A 
-    B 
+    B
+    vx_range 
+    vy_range 
+    d
 end
 
 # ϕ₁*x + ϕ₂*y + ϕ₃*z ≥ -þ
@@ -20,19 +23,6 @@ struct Region
     θ::Float64
 end
 
-
-mutable struct DiscreteAction 
-    name
-    args
-    pos_prec 
-    neg_prec 
-    pos_eff 
-    neg_eff      
-    function Discrete_Action(name)
-        new(name, [], [], [], [], [])
-    end
-end
-
 mutable struct Funnel 
     name 
     params 
@@ -42,8 +32,9 @@ mutable struct Funnel
     dynamics 
     pos_eff 
     neg_eff 
+    is_continuous
     function Funnel(name)
-        new(name, [],[],[],[],[],[],[])
+        new(name, [],[],[],[],[],[],[], true)
     end
 
 end

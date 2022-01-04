@@ -23,7 +23,7 @@
     :effect (and (handempty))
 )
 
-(:action move-holding
+(:action move_holding
     :parameters (?obj)
     :precondition (and (holding ?obj))
     :effect (and (holding ?obj))
