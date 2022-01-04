@@ -32,25 +32,12 @@ mutable struct Funnel
     dynamics 
     pos_eff 
     neg_eff 
+    end_region 
     is_continuous
     function Funnel(name)
-        new(name, [],[],[],[],[],[],[], true)
+        new(name, [],[],[],[],[],[],[],[],true)
     end
-
-end
-
-mutable struct NoOp  
-    name 
-    args
-    pos_prec 
-    neg_prec 
-    pos_eff 
-    neg_eff 
-    function NoOp(prop)
-        new(:NoOp, [], [prop], [], [prop], [])
-    end
-end
-
+end 
 
 mutable struct Graph 
     num_levels::Int64 
@@ -62,7 +49,6 @@ mutable struct Graph
     initprops 
     goalprops 
     function Graph()
-        new(0, Dict(1=>[]), Dict(1=>[]),  Dict(1=>[]), Dict(1=>Dict()), 
-        false, [], [])
+        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, [], [])
     end
 end
