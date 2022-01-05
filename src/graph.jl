@@ -22,6 +22,10 @@ function expand!(graph, domain, problem, constraints)
     end 
     actions = get_all_actions(domain, problem)
     action_list=[]
+    graph.props[k+1] = Dict()
+    graph.props[k+1][:discrete]=[]
+    graph.props[k+1][:continuous]=[]
+    graph.acts[k]=[]
     for act in actions 
         if is_applicable(act, graph, constraints, k)
             instantiated_action = compute_funnel(act, graph, constraints, k)
@@ -41,6 +45,8 @@ function expand!(graph, domain, problem, constraints)
             push!(graph.acts[k], noop)
             push!(graph.props[k+1][:discrete], prop) 
     end
+    graph.props[k+1][:discrete] = collect(Set(graph.props[k+1][:discrete]))
+    graph.props[k+1][:continuous] = collect(Set(graph.props[k+1][:continuous]))
     graph.μacts[k] = get_action_mutexes(graph, k)
     graph.num_levels+=1
     return graph 
@@ -94,7 +100,7 @@ function goal_reached(graph, domain, problem)
                 break 
             end
         end
-    elseif index > 0 && graph.props[index-1] == props 
+    elseif index > 1 && graph.props[index-1] == props 
         graph.leveled = true
     end 
     if goal_found
@@ -251,15 +257,15 @@ function compute_funnel(action, graph, constraints, level)
         push!(action.end_region, Region(:robot, [Ineq(1,0,0,xmin), Ineq(-1,0,0,xmax), Ineq(0,1,0,ymin), Ineq(0,-1,0,ymax)], 0.0))
 
     elseif action.name == :move_holding 
-        xmin = xyr_init[1] + d*a.dynamics.vx_range[1]
-        xmax = xyr_init[1] + d*a.dynamics.vx_range[2]
-        ymin = xyr_init[2] + d*a.dynamics.vy_range[1]
-        ymax = xyr_init[2] + d*a.dynamics.vy_range[2]
+        xmin = xyr_init[1][1] + d*a.dynamics.vx_range[1]
+        xmax = xyr_init[1][2] + d*a.dynamics.vx_range[2]
+        ymin = xyr_init[2][1] + d*a.dynamics.vy_range[1]
+        ymax = xyr_init[2][2] + d*a.dynamics.vy_range[2]
 
-        xomin = xyo_init[1] + d*a.dynamics.vx_range[1]
-        xomax = xyo_init[1] + d*a.dynamics.vx_range[2]
-        yomin = xyo_init[2] + d*a.dynamics.vy_range[1]
-        yomax = xyo_init[2] + d*a.dynamics.vy_range[2]
+        xomin = xyo_init[1][1] + d*a.dynamics.vx_range[1]
+        xomax = xyo_init[1][2] + d*a.dynamics.vx_range[2]
+        yomin = xyo_init[2][1] + d*a.dynamics.vy_range[1]
+        yomax = xyo_init[2][2] + d*a.dynamics.vy_range[2]
         xomin, xomax, yomin, yomax = apply_constraints(xomin, xomax, yomin, yomax, constraints)
 
         push!(action.end_region, Region(:robot, [Ineq(1,0,0,xmin), Ineq(-1,0,0,xmax), Ineq(0,1,0,ymin), Ineq(0,-1,0,ymax)], 0.0))
@@ -273,7 +279,7 @@ end
 function get_noop_action(proposition)
     noop = Funnel(:noop)
     noop.pos_prec = [proposition]
-    noop.pos_eff = [preposition]
+    noop.pos_eff = [proposition]
     noop.is_continuous = false
     return noop
 end
@@ -331,12 +337,13 @@ function get_proposition_mutexes(graph, level)
             if p in a.pos_eff && q in a.neg_eff 
                 push!(μprops, [p,q])
             end
+            if p in a.pos_eff push!(actions_with_p, a) end 
+            if q in a.pos_eff push!(actions_with_q, a) end
         end
-        if p in a.pos_eff push!(actions_with_p, a) end 
-        if q in a.pos_eff push!(actions_with_q, a) end
+        
     end
     for (p,q) in collect(permutations(graph.props[level][:continuous], 2)) 
-        if !intersect_regions([p],[q]) push!(μprops, [p,q]) end 
+        if !regions_intersect([p],[q]) push!(μprops, [p,q]) end 
     end
     μacts = graph.μacts[level-1]
     for p_action in actions_with_p 
