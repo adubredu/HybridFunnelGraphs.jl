@@ -99,8 +99,9 @@ function get_goal_propositions(domain, problem)
     goal_props = Dict()
     goal_props[:discrete] = term_props(domain, problem;init=false)
 
-    robot_region = Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0)
+    # robot_region = Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0)
     b1_region = Region(:b1, [Ineq(1,0,0,20), Ineq(-1,0,0,21), Ineq(0,1,0,20), Ineq(0,-1,0,21)], 0.0)
+    robot_region = Region(:robot, [Ineq(1,0,0,80), Ineq(-1,0,0,81.5), Ineq(0,1,0,80), Ineq(0,-1,0,81.5)], 0.0)
     goal_props[:continuous] = [robot_region, b1_region]
 
     return goal_props
@@ -276,7 +277,7 @@ function get_all_actions(domain, problem)
 
                 elseif act.name == :move_holding #compute funnel at instantitation
                     push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
-                    a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-5, 5], 1)
+                    a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-10, 10], 1)
                     a.is_continuous = true
                 end
                 push!(actions, a)
@@ -284,7 +285,7 @@ function get_all_actions(domain, problem)
         else 
             a = Funnel(act.name)
             push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
-            a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-5, 5], 1)
+            a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-10, 10], 1)
             a.is_continuous = true
             push!(actions, a)
         end
