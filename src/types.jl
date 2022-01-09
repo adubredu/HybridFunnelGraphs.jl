@@ -49,6 +49,6 @@ mutable struct Graph
     initprops 
     goalprops 
     function Graph()
-        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, [], [])
+        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, Dict(), Dict())
     end
 end

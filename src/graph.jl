@@ -5,6 +5,8 @@ function create_funnel_graph(domain_name, problem_name; max_levels=10)
     init_propositions = get_init_propositions(domain, problem)
     ex_constraints = get_external_constraints(domain, problem)
     graph.props[1] = init_propositions
+    graph.initprops = init_propositions
+    graph.goalprops = get_goal_propositions(domain, problem)
     graph.num_levels = 1
 
     for _=1:max_levels
