@@ -7,5 +7,6 @@ using PDDL
 include("types.jl")
 include("graph.jl")
 
-export create_funnel_graph
+export create_funnel_graph,
+       Region
 end
