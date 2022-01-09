@@ -8,5 +8,6 @@ include("types.jl")
 include("graph.jl")
 
 export create_funnel_graph,
-       Region
+       Region,
+       intersects
 end

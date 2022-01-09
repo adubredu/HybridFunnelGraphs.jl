@@ -175,6 +175,12 @@ function overlaps(x1r, y1r, x2r, y2r)
     return true 
 end
 
+function intersects(reg1, reg2)
+    x1r, y1r = get_min_max(reg1)
+    x2r, y2r = get_min_max(reg2)
+    return overlaps(x1r, y1r, x2r, y2r)
+end
+
 
 function regions_intersect(regions1, regions2) 
     for r2 in regions2 
