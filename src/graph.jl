@@ -53,12 +53,26 @@ function expand!(graph, domain, problem, constraints)
         end
     end
     graph.props[k+1][:discrete] = collect(Set(graph.props[k+1][:discrete]))
-    graph.props[k+1][:continuous] = collect(Set(graph.props[k+1][:continuous]))
+    graph.props[k+1][:continuous] = get_unique_regions(graph.props[k+1][:continuous])
     graph.μacts[k] = get_action_mutexes(graph, k)
     graph.num_levels+=1
-    println(" ")
+    # println(" ")
     return graph 
 end 
+
+function get_unique_regions(regions)
+    unique_regions = []
+    for reg in regions 
+        if !any([reg.r[1].ϕ₁ == x.r[1].ϕ₁ && reg.r[1].ϕ₂ == x.r[1].ϕ₂ && reg.r[1].ϕ₃ == x.r[1].ϕ₃ && reg.r[1].þ == x.r[1].þ && 
+            reg.r[2].ϕ₁ == x.r[2].ϕ₁ && reg.r[2].ϕ₂ == x.r[2].ϕ₂ && reg.r[2].ϕ₃ == x.r[2].ϕ₃ && reg.r[2].þ == x.r[2].þ && 
+            reg.r[3].ϕ₁ == x.r[3].ϕ₁ && reg.r[3].ϕ₂ == x.r[3].ϕ₂ && reg.r[3].ϕ₃ == x.r[3].ϕ₃ && reg.r[3].þ == x.r[3].þ &&  
+            reg.r[4].ϕ₁ == x.r[4].ϕ₁ && reg.r[4].ϕ₂ == x.r[4].ϕ₂ && reg.r[4].ϕ₃ == x.r[4].ϕ₃ && reg.r[4].þ == x.r[4].þ  
+            for x in unique_regions])
+            push!(unique_regions, reg)
+        end
+    end
+    return unique_regions
+end
 
 
 function fill_proposition(proposition, objs) 
@@ -101,7 +115,7 @@ function get_goal_propositions(domain, problem)
 
     # robot_region = Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0)
     b1_region = Region(:b1, [Ineq(1,0,0,20), Ineq(-1,0,0,21), Ineq(0,1,0,20), Ineq(0,-1,0,21)], 0.0)
-    robot_region = Region(:robot, [Ineq(1,0,0,80), Ineq(-1,0,0,81.5), Ineq(0,1,0,80), Ineq(0,-1,0,81.5)], 0.0)
+    robot_region = Region(:robot, [Ineq(1,0,0,40), Ineq(-1,0,0,41), Ineq(0,1,0,40), Ineq(0,-1,0,41)], 0.0)
     goal_props[:continuous] = [robot_region, b1_region]
 
     return goal_props
@@ -201,15 +215,7 @@ function in_region(regions1, regions2)
     end
     return all(allbool)
 end
-
-
-
-function fill_proposition(proposition, objs) 
-    if isempty(objs) objs=Term[] end
-    prop = Compound(Symbol(proposition.name), objs)
-    return prop
-end
-
+ 
 
 function get_preconditions(domain, act, vars)
     action = PDDL.get_action(domain, act.name)
@@ -277,7 +283,7 @@ function get_all_actions(domain, problem)
 
                 elseif act.name == :move_holding #compute funnel at instantitation
                     push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
-                    a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-10, 10], 1)
+                    a.dynamics = Dynamics(I(2), I(2), [-5.,5], [-5, 5], 1)
                     a.is_continuous = true
                 end
                 push!(actions, a)
@@ -285,7 +291,7 @@ function get_all_actions(domain, problem)
         else 
             a = Funnel(act.name)
             push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
-            a.dynamics = Dynamics(I(2), I(2), [-10.,10], [-10, 10], 1)
+            a.dynamics = Dynamics(I(2), I(2), [-5.,5], [-5, 5], 1)
             a.is_continuous = true
             push!(actions, a)
         end
@@ -352,37 +358,34 @@ function get_maintain_funnel(region)
 end
 
 
-function is_applicable(action, graph, constraints, level)
-    # if !action.is_continuous
-        props = graph.props[level][:discrete]
-        μprops = graph.μprops[level]
-        if issubset(action.pos_prec, props) #&& isdisjoint(action.neg_prec, props)
-            app = true 
-            println("Level ",level," action ",action.name," is subset to ",props)
-            if !isempty(μprops)
-                for precondition in collect(permutations(action.pos_prec, 2))
-                    if precondition in μprops
-                        app = false
-                        break 
-                    end
+function is_applicable(action, graph, constraints, level) 
+    props = graph.props[level][:discrete]
+    μprops = graph.μprops[level]
+    if issubset(action.pos_prec, props) #&& isdisjoint(action.neg_prec, props)
+        app = true 
+        # println("Level ",level," action ",action.name," is subset to ",props)
+        if !isempty(μprops)
+            for precondition in collect(permutations(action.pos_prec, 2))
+                if precondition in μprops
+                    app = false
+                    break 
                 end
             end
-            
-        else
-            println("Level ",level," action ",action.name, " ",action.pos_prec," is NOT subset to ",props)
-            app = false
         end
-    # end 
-    # if action.is_continuous && issubset(action.pos_prec, props)
+        
+    else
+        # println("Level ",level," action ",action.name, " ",action.pos_prec," is NOT subset to ",props)
+        app = false
+    end 
     if app
         regions2 = graph.props[level][:continuous]
         regions1 = action.continuous_prec
         
         if in_region(regions1, regions2) 
             app = true 
-            println("Level ",level," action ",action.name," intersects prop region")
+            # println("Level ",level," action ",action.name," intersects prop region")
         else 
-            println("Level ",level," action ",action.name," DOESN'T intersect prop region")
+            # println("Level ",level," action ",action.name," DOESN'T intersect prop region")
             app = false 
         end
     end
@@ -396,7 +399,7 @@ function get_action_propositions(action)
     propositions[:continuous]=[]
     for prop in action.pos_eff 
         push!(propositions[:discrete], prop)
-        println("pushed ",action.name,"'s ",prop)
+        # println("pushed ",action.name,"'s ",prop)
     end
     for region in action.end_region 
         push!(propositions[:continuous], region)
