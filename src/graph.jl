@@ -274,35 +274,32 @@ function get_all_actions(domain, problem)
     obs = collect(PDDL.get_objects(problem))
     for act in values(PDDL.get_actions(domain))
         vars = act.args
-        if act.name != :move
-            for vs in collect(permutations(obs, length(vars)))
-                a = Funnel(act.name)
-                a.pos_prec, a.neg_prec = get_preconditions(domain, act, vs)
-                a.pos_eff, a.neg_eff = get_effects(domain, act, vs)
-                a.params = vs 
-                if act.name == :pick #make more general. preferrably  from prob.pddl
-                    push!(a.continuous_prec, Region(:robot, [Ineq(1,0,0,20), Ineq(-1,0,0,21), Ineq(0,1,0,20), Ineq(0,-1,0,21)], 0.0))
-                    a.is_continuous = false
-
-                elseif act.name == :place #make more general later
-                    push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0))
-                    push!(a.continuous_prec, Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0))
-                    a.is_continuous = false
-
-                elseif act.name == :move_holding #compute funnel at instantitation
-                    push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
-                    a.dynamics = Dynamics(I(2), I(2), [-5.,5], [-5, 5], 1)
-                    a.is_continuous = true
-                end
-                push!(actions, a)
-            end
-        else 
+        # if act.name != :move
+        for vs in collect(permutations(obs, length(vars)))
             a = Funnel(act.name)
-            push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
-            a.dynamics = Dynamics(I(2), I(2), [-5.,5], [-5, 5], 1)
-            a.is_continuous = true
+            a.pos_prec, a.neg_prec = get_preconditions(domain, act, vs)
+            a.pos_eff, a.neg_eff = get_effects(domain, act, vs)
+            a.params = vs 
+            if act.name == :pick #make more general. preferrably  from prob.pddl
+                push!(a.continuous_prec, Region(:robot, [Ineq(1,0,0,20), Ineq(-1,0,0,21), Ineq(0,1,0,20), Ineq(0,-1,0,21)], 0.0))
+                a.is_continuous = false
+
+            elseif act.name == :place #make more general later
+                push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0))
+                push!(a.continuous_prec, Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0))
+                a.is_continuous = false
+
+            elseif act.name == :move_holding #compute funnel at instantitation
+                push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
+                a.dynamics = Dynamics(I(2), I(2), [-5.,5], [-5, 5], 1)
+                a.is_continuous = true
+            elseif act.name == :move 
+                push!(a.continuous_prec, Region(:b1, [Ineq(1,0,0,-Inf), Ineq(-1,0,0,Inf), Ineq(0,1,0,-Inf), Ineq(0,-1,0,Inf)], 0.0))
+                a.dynamics = Dynamics(I(2), I(2), [-5.,5], [-5, 5], 1)
+                a.is_continuous = true
+            end
             push!(actions, a)
-        end
+        end 
     end
     return actions
 end
