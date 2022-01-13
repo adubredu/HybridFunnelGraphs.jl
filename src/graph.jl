@@ -117,7 +117,7 @@ function get_goal_propositions(domain, problem)
 
     # robot_region = Region(:robot, [Ineq(1,0,0,0), Ineq(-1,0,0,0.5), Ineq(0,1,0,0), Ineq(0,-1,0,0.5)], 0.0)
     b1_region = Region(:b1, [Ineq(1,0,0,19), Ineq(-1,0,0,20), Ineq(0,1,0,19), Ineq(0,-1,0,20)], 0.0)
-    robot_region = Region(:robot, [Ineq(1,0,0,40), Ineq(-1,0,0,41), Ineq(0,1,0,40), Ineq(0,-1,0,41)], 0.0)
+    robot_region = Region(:robot, [Ineq(1,0,0,60), Ineq(-1,0,0,61), Ineq(0,1,0,60), Ineq(0,-1,0,61)], 0.0)
     goal_props[:continuous] = [robot_region, b1_region]
 
     return goal_props
