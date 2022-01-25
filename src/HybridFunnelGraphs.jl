@@ -2,13 +2,13 @@ module HybridFunnelGraphs
 
 using LinearAlgebra
 using Combinatorics
-using PDDL 
+using HPD
 
 include("types.jl")
-include("graph.jl")
+# include("graph.jl")
 include("hpd_graph.jl")
 
-export create_funnel_graph,
-       Region,
-       intersects
+# export create_funnel_graph,
+#        Region,
+#        intersects
 end

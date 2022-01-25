@@ -6,10 +6,11 @@
     (:goal (and (handempty)  ))
     (:continuous_inits (math (xr==3.0) (yr==5.0) 
                              (xo==0.0) (yo==0.0)
-                             (vx==1.5) (vy==1.5)))
+                             (vxmin==-1.5) (vxmax==1.5)
+                             (vymin==-1.5) (vymax==1.5)))
     (:continuous_goals (math (xr==4.0) (yr==6.0) 
                              (xo==3.0) (yo==5.0)))
-    (:external_constraints (math (2xr+4yr>=5) 
+    (:external_constraints (math (xr==0.0) 
                                  (6xr+7yr<=10)))
     (:objective_function (math (xr**2+yr**2)))
  
