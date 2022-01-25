@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [deps]
 Combinatorics = "861a8166-3701-5b0c-9a16-15d98fcdc6aa"
+HPD = "9e52bb9f-844e-4299-848a-4df0e5a00971"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 PDDL = "2c8894f9-daa1-498a-9e3a-26edd9623db8"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
