@@ -35,7 +35,7 @@ mutable struct Funnel
     end_region 
     is_continuous
     function Funnel(name)
-        new(name, [],[],[],[],[],[],[],[],true)
+        new(name, [],[],[],[],[],[],[],Dict(),true)
     end
 end 
 
@@ -47,8 +47,9 @@ mutable struct Graph
     μprops 
     leveled 
     initprops 
-    goalprops 
+    goalprops
+    indexes #[constraint_index, object_index]
     function Graph()
-        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, Dict(), Dict())
+        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, Dict(), Dict(), [1,1])
     end
 end
