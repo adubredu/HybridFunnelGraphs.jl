@@ -1,7 +1,17 @@
-gen() = Channel() do c 
-    # i=1
-    # for i=1:0.5:3
-    #     push!(c, i) 
-    # end
-    [1,2,3,4]
+import Base.Cartesian.lreplace
+function get_pose_from_fxn(exp) 
+    xs = 0.1:0.1:5
+    ys = 0.1:0.1:5
+    ls = [] 
+    for xg in xs 
+        for yg in ys 
+            @eval f(xg, yg)=$exp  
+            if f(xg, yg) 
+                push!(ls, (xg, yg))
+            end
+        end
+    end
+    return ls
 end
+# xg=0.; yg=0.
+get_pose_from_fxn(:(2xg+3yg>=5))

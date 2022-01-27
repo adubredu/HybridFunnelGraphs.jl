@@ -323,3 +323,24 @@ function sample_pose_from_fxn(exp)
     ub = sexp[end]
     return collect(lb:0.5:ub)
 end
+
+
+function get_pose_from_fxn(exp)
+    xs = 0:0.1:5
+    ys = 0:0.1:5
+    ls = []
+    for xg in xs 
+        for yg in ys 
+            if eval(exp)
+                println((xg, yg))
+                push!(ls, (xg, yg))
+            end
+        end
+    end
+    return ls
+end
+
+# box_vars = ["x"*string(var.name), "y"*string(var.name)]
+#         for xb = box_vars
+#             @eval $xb = cont_prob[Symbol(xb)]
+#         end
