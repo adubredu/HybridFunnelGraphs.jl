@@ -151,12 +151,18 @@ function satisfies_precondition(action, vars, cont_props)
     precond_exp = Meta.parse(string_exp)
     # τ = precond_exp.args[3]
     for cont_prop in cont_props 
-        xr, yr = cont_prop[:xr], cont_prop[:yr]
-        box_vars = ["x"*string(var.name), "y"*string(var.name)]
-        for xb = box_vars
-            @eval $xb = cont_prob[Symbol(xb)]
+        if action.name == "pick"
+            xr, yr = cont_prop[:xr], cont_prop[:yr]
+            box_vars = ["x"*string(var.name), "y"*string(var.name)]
+            for xb = box_vars
+                @eval $xb = cont_prob[Symbol(xb)]
+            end
+            if eval(precond_exp) return true end
+        elseif action.name == "place"
+            xr, yr = cont_prop[:xr], cont_prop[:yr]
+            xg, yg = cont_prop[:xg], cont_prop[:yg]
+            if eval(precond_exp) return true end
         end
-        if eval(precond_exp) return true end
     end
     return false
 end
@@ -183,8 +189,8 @@ function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
     push!(act.continuous_prec, 
       get_expression_from_string(action.cont_precond.args[1].name, act.params))
     cont_props = graph.props[graph.num_levels][:continuous]
-    if action.dynamics != true
-        ind = get_satisfying_index(action, act.params[1], cont_props)
+    ind = get_satisfying_index(action, act.params[1], cont_props)
+    if action.dynamics != true 
         xr = cont_props[ind][:xr]; yr = cont_props[ind][:yr]
         vxmin = graph.props[1][:continuous][1][:vxmin]
         vxmax = graph.props[1][:continuous][1][:vxmax]
@@ -201,12 +207,17 @@ function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
             yrmin = yr + d*vymin 
             yrmax = yr + d*vymax
         end
+        action.end_region[:xr] = [xrmin, xrmax]
+        action.end_region[:yr] = [yrmin, yrmax]
+    else
+        action.end_region[:xr] = cont_props[ind][:xr]
+        action.end_region[:yr] = cont_props[ind][:yr]
     end
     if action.cont_effect != true
         # for ce in action.cont_effect.args
         # cexp = Meta.parse(ce.name)
-        act.end_region[Symbol("x"*string(act.params[1]))] = [xrmin, xrmax]
-        act.end_region[Symbol("y"*string(act.params[1]))] = [yrmin, yrmax]
+        act.end_region[Symbol("x"*string(act.params[1]))] = action.end_region[:xr]
+        act.end_region[Symbol("y"*string(act.params[1]))] = action.end_region[:yr]
     end
     return act
     
@@ -221,6 +232,8 @@ function get_applicable_actions(graph::Graph, level::Int, constraint,
         fluents = get_action_causal_fluents(act, graph, domain, problem)
         pos_prec, neg_prec, pos_eff, neg_eff, vs = fluents
         if issubset(pos_prec, props[:discrete])
+            # choose xg from constraint here. put it in props[:cont]
+            props[:continuous][:xg], props[:continuous][:yg] = get_placement_pose(graph, level, constraint)
             if satisfies_precondition(act, vs, props[:continuous])
                 instantiated_action = instantiate_action(act, graph, domain, problem)
                 push!(applicable_actions, instantiated_action)
@@ -231,17 +244,71 @@ function get_applicable_actions(graph::Graph, level::Int, constraint,
 end
 
 function get_proposition_mutexes(graph::Graph, level::Int)
+    disc_props = graph.props[level][:discrete]
+    μprops=[] 
+    action_list = graph.acts[level-1]
+    for a in action_list
+        for (p,q) in collect(permutations(disc_props, 2)) 
+            if p in a.pos_eff && q in a.neg_eff 
+                push!(μprops, [p,q])
+            end
+            if p in a.pos_eff push!(actions_with_p, a) end 
+            if q in a.pos_eff push!(actions_with_q, a) end
+        end
+        
+    end  
+    return μprops
+end
+
+function action_pairs_are_mutex(a, b, μprops) 
+    #1
+    if !isempty(intersect(a.neg_eff, union(b.pos_prec, b.pos_eff))) ||
+        !isempty(intersect(b.neg_eff, union(a.pos_prec, a.pos_eff)))
+         return true
+    end
+    if !isempty(μprops)
+        for μ in μprops 
+            p = μ[1]
+            q = μ[2] 
+            if (p in a.pos_prec && q in b.pos_prec)
+                return true
+            end 
+        end
+    end
+    return false
 end
 
 function get_action_mutexes(graph::Graph, level::Int)
+    actions = graph.acts[level]
+    μacts = []
+    μprops = graph.μprops[level]
+    for (a, b) in collect(permutations(actions, 2)) 
+        if action_pairs_are_mutex(a, b, μprops)
+            push!(μacts, [a, b])
+        end 
+    end
+    return μacts
 end
 
 function get_action_propositions(action::Funnel)
+    propositions = Dict()
+    propositions[:discrete] = action.pos_eff
+    propositions[:continuous] = action.end_region
+    return propositions
 end
 
 function get_noop_action(proposition)
+    noop = Funnel(:noop)
+    noop.pos_prec = [proposition]
+    noop.pos_eff = [proposition]
+    noop.is_continuous = false
+    return noop
 end
 
 function get_external_constraint(graph::Graph, level::Int, constraints)
-    
+    return constraints[graph.indexes[1]]
+end
+
+function get_placement_pose(graph::Graph, level::Int, constraint)
+
 end
