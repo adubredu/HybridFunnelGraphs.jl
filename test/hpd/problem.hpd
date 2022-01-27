@@ -10,8 +10,8 @@
                              (vxmin==-1.5) (vxmax==1.5)
                              (vymin==-1.5) (vymax==1.5)))
     (:continuous_goals (math (xr==4.0) (yr==6.0)))
-    (:external_constraints (math (0.0<=xg<=0.05&0.0<=yg<=1.5)
-                                 (2xg+3yg>=0.5&2xg+3yg<=0.7))) 
+    (:external_constraints (math (0.0<=xg<=0.05&&0.0<=yg<=1.5)
+                                 (2xg+3yg>=0.5&&2xg+3yg<=0.7))) 
                                  ;(6xr+7yr<=10)))
     (:objective_function (math (xr**2+yr**2)))
  

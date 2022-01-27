@@ -1,4 +1,4 @@
-import Base.Cartesian.lreplace
+
 function get_pose_from_fxn(exp) 
     xs = 0.1:0.1:5
     ys = 0.1:0.1:5
@@ -14,4 +14,4 @@ function get_pose_from_fxn(exp)
     return ls
 end
 # xg=0.; yg=0.
-get_pose_from_fxn(:(2xg+3yg>=5))
+get_pose_from_fxn(:(2xg+3yg>=0.7&&2xg+3yg<=1.7))
