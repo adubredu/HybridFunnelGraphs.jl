@@ -1,6 +1,7 @@
 (define (domain westbrick) 
 (:predicates (handempty)
-             (holding ?obj)) 
+             (holding ?obj)
+             (laid ?obj)) 
 
 (:action pick
     :parameters (?obj)
@@ -9,15 +10,15 @@
     :dynamics ()
     :continuous_effect (math (xo==xr) (yo==yr))
     :effect (and  (holding ?obj) 
-                   (not (handempty))))
+                   (not (handempty)) (not (laid ?obj))))
 
 (:action place
     :parameters (?obj)
-    :precondition (and (holding ?obj) )
+    :precondition (and (holding ?obj) (not (laid ?obj)))
     :continuous_precondition (math (|xr-xg|**2+|yr-yg|**2<=0.25))
     :dynamics ()
     :continuous_effect (math (xo==xg) (yo==yg))
-    :effect (and (handempty)
+    :effect (and (handempty) (laid ?obj)
                  (not (holding ?obj)))
 )
 

@@ -121,7 +121,7 @@ end
 
 function get_external_constraints(domain::HPD.Parser.GenericDomain, 
     problem::HPD.Parser.GenericProblem)
-    ext_consts = [Meta.parse(c.name) for c in problem.external_constraints.args]
+    ext_consts = [Meta.parse(replace(c.name,"&"=>";")) for c in problem.external_constraints.args]
     return ext_consts
 end
 
@@ -310,5 +310,16 @@ function get_external_constraint(graph::Graph, level::Int, constraints)
 end
 
 function get_placement_pose(graph::Graph, level::Int, constraint)
+    xs = sample_pose_from_fxn(constraint.args[1])
+    ys = sample_pose_from_fxn(constraint.args[2])
+    ls = [(x,y) for x in xs for y in ys]
+    return ls[graph.indexes[3]]
+    
+end
 
+function sample_pose_from_fxn(exp)
+    sexp = exp.args 
+    lb = sexp[1]
+    ub = sexp[end]
+    return collect(lb:0.5:ub)
 end
