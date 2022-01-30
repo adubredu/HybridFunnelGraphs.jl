@@ -1,4 +1,4 @@
-function create_funnel_graph(domain_name, problem_name; max_levels=10)
+function create_funnel_graph(domain_name::String, problem_name::String; max_levels=10)
     graph = Graph()
     domain = load_domain(domain_name)
     problem = load_problem(problem_name)
@@ -20,15 +20,14 @@ function expand!(graph::Graph, domain::HPD.Parser.GenericDomain,
     problem::HPD.Parser.GenericProblem, constraints)
     k = graph.num_levels
     if k ≥ 2 
-        graph.μprops = get_proposition_mutexes(graph, k)
+        graph.μprops[k] = get_proposition_mutexes(graph, k)
     end
     action_list = []
     graph.props[k+1] = Dict()
-    graph.grops[k+1][:discrete] = []
+    graph.props[k+1][:discrete] = []
     graph.props[k+1][:continuous] = []
-    graph.acts[k] = []
-    ext_constraint = get_external_constraint(graph, k, constraints)
-    actions = get_applicable_actions(graph, k, ext_constraint, domain, problem)
+    graph.acts[k] = [] 
+    actions = get_applicable_actions(graph, k, constraints, domain, problem) 
     for act in actions
         propositions = get_action_propositions(act)
         push!(graph.acts[k], act)
@@ -56,20 +55,31 @@ function expand!(graph::Graph, domain::HPD.Parser.GenericDomain,
     return graph
 end
 
+function terminal_props(domain, problem; init=true)
+    termprops=[]
+    if init props = collect(initstate(domain, problem).facts) else props = collect(goalstate(domain, problem).facts) end
+    for prop in props
+        objs = prop.args
+        push!(termprops, fill_proposition(prop, objs))
+    end
+    return termprops
+
+end
+
 function get_init_propositions(domain::HPD.Parser.GenericDomain, 
                               problem::HPD.Parser.GenericProblem)
     init_props = Dict()
     init = initstate(domain, problem)
-    init_props[:discrete] = collect(init.facts)
+    init_props[:discrete] = terminal_props(domain, problem) 
     init_props[:continuous] = [init.values]
     return init_props
 end
 
 function get_goal_propositions(domain::HPD.Parser.GenericDomain, 
-                              problem::HPD.Parser.GenericDomain)
+                              problem::HPD.Parser.GenericProblem)
     goal_props = Dict()
     goal = goalstate(domain, problem)
-    goal_props[:discrete] = collect(goal.facts)
+    goal_props[:discrete] = terminal_props(domain, problem;init=false) 
     goal_props[:continuous] = goal.values
     return goal_props
 end
@@ -126,71 +136,112 @@ function get_external_constraints(domain::HPD.Parser.GenericDomain,
     return ext_consts
 end
 
-function get_action_causal_fluents(act::HPD.Parser.GenericAction, 
-    graph::Graph, domain::HPD.Parser.GenericDomain, 
-    problem::HPD.Parser.GenericDomain)
-    obs = collect(HPD.Parser.get_objects(problem))
-    ob = obs[graph.indexes[2]]
-    pos_prec, neg_prec = get_preconditions(domain, act, [obs])
-    pos_eff, neg_eff = get_effects(domain, act, [obs])
-    return pos_prec, neg_prec, pos_eff, neg_eff, [ob] 
+function fill_proposition(proposition, objs) 
+    if isempty(objs) objs=Term[] end
+    prop = Compound(Symbol(proposition.name), objs)
+    return prop
 end
 
-function get_expression_from_string(string_exp, var) 
-    string_exp = replace(string_exp, "xo"=>string(var.name))
-    exp = Meta.parse(string_exp)
-    return exp
+function get_preconditions(domain, action, vars) 
+    vardict = Dict()
+    [vardict[action.args[i]] = vars[i] for i=1:length(action.args)]
+    pos, neg = [], []
+    for pre in action.precond.args 
+        if pre.name == :not 
+            vs = []
+            [push!(vs, Const(vardict[arg])) for arg in pre.args[1].args]
+            prop = fill_proposition(pre.args[1], vs)
+            push!(neg, prop)
+        else 
+            vs = []
+            [push!(vs, Const(vardict[arg])) for arg in pre.args]
+            prop = fill_proposition(pre, vs)
+            push!(pos, prop)
+        end
+    end
+    return pos, neg
+end
+
+function get_effects(domain, action, vars) 
+    vardict = Dict()
+    [vardict[action.args[i]] = vars[i] for i=1:length(action.args)]
+    pos, neg = [], []
+    for eff in action.effect.args 
+        if eff.name == :not 
+            vs = []
+            [push!(vs, Const(vardict[arg])) for arg in eff.args[1].args]
+            prop = fill_proposition(eff.args[1], vs)
+            push!(neg, prop)
+        else 
+            vs = []
+            [push!(vs, Const(vardict[arg])) for arg in eff.args]
+            prop = fill_proposition(eff, vs)
+            push!(pos, prop)
+        end
+    end
+    return pos, neg
+end
+
+function get_action_causal_fluents(act::HPD.Parser.GenericAction, 
+    graph::Graph, domain::HPD.Parser.GenericDomain, 
+    problem::HPD.Parser.GenericProblem)
+    obs = collect(HPD.Parser.get_objects(problem))
+    ob = obs[graph.indexes[1]]
+    pos_prec, neg_prec = get_preconditions(domain, act, [ob])
+    pos_eff, neg_eff = get_effects(domain, act, [ob])
+    return pos_prec, neg_prec, pos_eff, neg_eff, [ob] 
 end
 
 # make more general
 # only works with one object
-function satisfies_precondition(action, vars, cont_props)
-    if action.name == "move" || action.name == "move_holding"  return true end
+function satisfies_precondition(action, vars, cont_prop)
+    if action.name == :move || action.name == :move_holding  return true end
     var = vars[1]
     string_exp = action.cont_precond.args[1].name
-    string_exp = replace(string_exp, "xo"=>string(var.name))
+    # string_exp = replace(string_exp, "xo"=>string(var.name))
     precond_exp = Meta.parse(string_exp)
-    # τ = precond_exp.args[3]
-    for cont_prop in cont_props 
-        if action.name == "pick"
-            xr, yr = cont_prop[:xr], cont_prop[:yr]
-            box_vars = ["x"*string(var.name), "y"*string(var.name)]
-            for xb = box_vars
-                @eval $xb = cont_prob[Symbol(xb)]
-            end
-            if eval(precond_exp) return true end
-        elseif action.name == "place"
-            xr, yr = cont_prop[:xr], cont_prop[:yr]
-            xg, yg = cont_prop[:xg], cont_prop[:yg]
-            if eval(precond_exp) return true end
-        end
+    # τ = precond_exp.args[3] 
+    if action.name == :pick 
+        xr, yr = cont_prop[:xr], cont_prop[:yr]
+        box_vars = ["x"*string(var.name), "y"*string(var.name)] 
+        xo, yo = cont_prop[Symbol(box_vars[1])], cont_prop[Symbol(box_vars[2])]
+        fun = @eval (xr, yr, xo, yo) -> $precond_exp  
+        if Base.invokelatest(fun, xr, yr, xo, yo) return true end 
+    elseif action.name == :place
+        xr, yr = cont_prop[:xr], cont_prop[:yr]
+        xg, yg = cont_prop[:xg], cont_prop[:yg]
+        fun = @eval (xr, yr, xg, yg) -> $precond_exp 
+        if Base.invokelatest(fun, xr, yr, xg, yg) return true end
     end
     return false
 end
 
 function get_satisfying_index(action, var, cont_props)
+    if action.name == :move || action.name == :move_holding return 1 end
+    string_exp = action.cont_precond.args[1].name
+    precond_exp = Meta.parse(string_exp) 
     for (i,cont_prop) in enumerate(cont_props)
-        xr, yr = cont_prop[:xr], cont_prop[:yr]
+        xr, yr = cont_prop[:xr], cont_prop[:yr] 
         box_vars = ["x"*string(var.name), "y"*string(var.name)]
-        for xb = box_vars
-            @eval $xb = cont_prob[Symbol(xb)]
-        end
-        if eval(precond_exp) return i end
+        xo, yo = cont_prop[Symbol(box_vars[1])], cont_prop[Symbol(box_vars[2])]
+        fun = @eval (xr, yr, xo, yo) -> $precond_exp  
+        if Base.invokelatest(fun, xr, yr, xo, yo) return i end 
     end
     return -1
 end
 
 function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
-            domain::HPD.Parser.GenericDomain, problem::HPD.Parser.GenericDomain)
-    act = Funnel(action.name)
+            domain::HPD.Parser.GenericDomain, problem::HPD.Parser.GenericProblem)
+    funnel = Funnel(action.name)
     d = 1.0
-    act.pos_prec, act.neg_prec, act.pos_eff, act.neg_eff, act.params = 
+    funnel.pos_prec, funnel.neg_prec, funnel.pos_eff, funnel.neg_eff, funnel.params = 
                     get_action_causal_fluents(action, graph, domain, problem)
-    if act.name == :pick || act.name == :place act.is_continuous = false end 
-    push!(act.continuous_prec, 
-      get_expression_from_string(action.cont_precond.args[1].name, act.params))
+    if funnel.name == :pick || funnel.name == :place funnel.is_continuous = false end 
+    if length(action.cont_precond.args)>0 
+        push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
+    end
     cont_props = graph.props[graph.num_levels][:continuous]
-    ind = get_satisfying_index(action, act.params[1], cont_props)
+    ind = get_satisfying_index(action, funnel.params[1], cont_props)
     if action.dynamics != true 
         xr = cont_props[ind][:xr]; yr = cont_props[ind][:yr]
         vxmin = graph.props[1][:continuous][1][:vxmin]
@@ -208,36 +259,40 @@ function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
             yrmin = yr + d*vymin 
             yrmax = yr + d*vymax
         end
-        action.end_region[:xr] = [xrmin, xrmax]
-        action.end_region[:yr] = [yrmin, yrmax]
+        funnel.end_region[:xr] = [xrmin, xrmax]
+        funnel.end_region[:yr] = [yrmin, yrmax]
     else
-        action.end_region[:xr] = cont_props[ind][:xr]
-        action.end_region[:yr] = cont_props[ind][:yr]
+        funnel.end_region[:xr] = cont_props[ind][:xr]
+        funnel.end_region[:yr] = cont_props[ind][:yr]
     end
     if action.cont_effect != true
         # for ce in action.cont_effect.args
         # cexp = Meta.parse(ce.name)
-        act.end_region[Symbol("x"*string(act.params[1]))] = action.end_region[:xr]
-        act.end_region[Symbol("y"*string(act.params[1]))] = action.end_region[:yr]
+        funnel.end_region[Symbol("x"*string(funnel.params[1]))] = cont_props[ind][:xr]
+        funnel.end_region[Symbol("y"*string(funnel.params[1]))] = cont_props[ind][:yr]
     end
-    return act
+    return funnel
     
 end
 
-function get_applicable_actions(graph::Graph, level::Int, constraint, 
-        domain::HPD.Parser.GenericDomain,  problem::HPD.Parser.GenericDomain)
+function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Expr}, domain::HPD.Parser.GenericDomain,  problem::HPD.Parser.GenericProblem)
     applicable_actions = []
     actions = collect(values(HPD.Parser.get_actions(domain)))
     props = graph.props[level]
     for act in actions 
         fluents = get_action_causal_fluents(act, graph, domain, problem)
-        pos_prec, neg_prec, pos_eff, neg_eff, vs = fluents
-        if issubset(pos_prec, props[:discrete])
-            # choose xg from constraint here. put it in props[:cont]
-            props[:continuous][:xg], props[:continuous][:yg] = get_placement_pose(graph, level, constraint)
-            if satisfies_precondition(act, vs, props[:continuous])
-                instantiated_action = instantiate_action(act, graph, domain, problem)
-                push!(applicable_actions, instantiated_action)
+        pos_prec, neg_prec, pos_eff, neg_eff, vs = fluents  
+        if issubset(pos_prec, props[:discrete]) 
+            for contprop in props[:continuous]
+                println("level $level prop ",contprop)
+                pose = get_placement_pose(graph, level, constraints) 
+                contprop[:xg] = pose[1]; contprop[:yg] = pose[2]
+                if satisfies_precondition(act, vs, contprop)
+                    instantiated_action = instantiate_action(act, graph, domain, problem)
+                    push!(applicable_actions, instantiated_action)
+                    if act.name == "pick" graph.indexes[2]+=1 end #++ placepose index
+                    if act.name == "place" graph.indexes[1]+=1 end #++ object index
+                end
             end
         end
     end
@@ -307,28 +362,51 @@ function get_noop_action(proposition)
 end
 
 function get_external_constraint(graph::Graph, level::Int, constraints)
-    return constraints[graph.indexes[1]]
+    return constraints #[graph.indexes[1]]
 end
 
-function get_placement_pose(graph::Graph, level::Int, constraint) 
-    ls = get_pose_from_fxn(constraint)
-    return ls[graph.indexes[3]] 
+#problem specific
+function get_placement_pose(graph::Graph, level::Int, constraints) 
+    ls = get_poses_from_constraints(constraints)
+    return ls[graph.indexes[2]] 
 end 
 
-function get_pose_from_fxn(exp) 
+function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}) 
     xs = 0.0:0.1:5
-    ys = 0.0:0.1:5
-    ls = [] 
-    for xg in xs 
-        for yg in ys 
-            @eval f(xg, yg)=$exp  
-            if f(xg, yg) 
-                push!(ls, (xg, yg))
+    ys = 0.0:0.1:5 
+    fun = @eval (xg, yg) -> $exp
+    for x in xs 
+        for y in ys  
+            if Base.invokelatest(fun, x, y) 
+                push!(ls, (x, y))
             end
         end
-    end
-    return ls
+    end  
 end
+
+function get_poses_from_constraints(exps::Vector{Expr})
+    ls = []
+    for exp in exps 
+        get_pose_from_fxn!(exp, ls) 
+    end
+    return collect(Set(ls)) 
+end
+
+
+# function get_pose_from_fxn(exp) 
+#     xs = 0.0:0.1:5
+#     ys = 0.0:0.1:5
+#     ls = [] 
+#     for xg in xs 
+#         for yg in ys 
+#             @eval f(xg, yg)=$exp  
+#             if f(xg, yg) 
+#                 push!(ls, (xg, yg))
+#             end
+#         end
+#     end
+#     return ls
+# end
 
 # box_vars = ["x"*string(var.name), "y"*string(var.name)]
 #         for xb = box_vars
