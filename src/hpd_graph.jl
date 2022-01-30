@@ -20,7 +20,7 @@ end
 
 function expand!(graph::Graph, domain::HPD.Parser.GenericDomain, 
     problem::HPD.Parser.GenericProblem, constraints)
-    k = graph.num_levels
+    k = graph.num_levels 
     if k ≥ 2 
         graph.μprops[k] = get_proposition_mutexes(graph, k)
     end
@@ -96,32 +96,34 @@ function goal_reached(graph::Graph, domain::HPD.Parser.GenericDomain,
     μprops = graph.μprops[index]
     goal_found = false
     if issubset(goals[:discrete], props[:discrete])
-        goal_found = true
-        for goal_pair in collect(permutations(goals[:discrete], 2))
-            if goal_pair in μprops 
-                goal_found = false 
-                break 
-            end
-        end
+        goal_found = true 
+        # for goal_pair in collect(permutations(goals[:discrete], 2))
+        #     if goal_pair in μprops 
+        #         goal_found = false 
+        #         break 
+        #     end
+        # end
     elseif index > 1 && graph.props[index-1] == props 
         graph.leveled = true
     end
     if goal_found
+        goal_found = false
         for cont in props[:continuous]
-            if !in_region(goals[:continuous], cont)
-                goal_found = false
+            if in_region(goals[:continuous], cont)
+                goal_found = true
+                break
             end
         end
     end
     return goal_found
 end
 
-function in_region(subregion::Dict{Any}, region::Dict{Any}) 
-    for k in keys(region)
+function in_region(subregion , region )  
+    for k in keys(subregion)
         if isa(subregion[k], Float64) && isa(region[k], Float64)
             if subregion[k] != region[k] return false end 
-        elseif isa(subregion[k], Float64) && isa(region[k], Array)
-            if !(region[k][1] < subregion[k] < region[k][2]) return false end 
+        elseif isa(subregion[k], Float64) && isa(region[k], Array) #println("2inhere");
+            if !(region[k][1] < subregion[k] < region[k][2]) return false; end 
         elseif isa(subregion[k], Array) && isa(region[k], Array)
             if subregion[k][2] < region[k][1] || region[k][2] < subregion[k][1]
                 return false
@@ -129,7 +131,7 @@ function in_region(subregion::Dict{Any}, region::Dict{Any})
         elseif isa(subregion[k], Array) && isa(region[k], Float64)
             if !(subregion[k][1] < region[k] < subregion[k][2]) return false end
         end
-    end
+    end 
     return true            
 end
 
@@ -153,12 +155,12 @@ function get_preconditions(domain, action, vars)
     for pre in action.precond.args 
         if pre.name == :not 
             vs = []
-            [push!(vs, Const(vardict[arg])) for arg in pre.args[1].args]
+            [push!(vs, vardict[arg]) for arg in pre.args[1].args]
             prop = fill_proposition(pre.args[1], vs)
             push!(neg, prop)
         else 
             vs = []
-            [push!(vs, Const(vardict[arg])) for arg in pre.args]
+            [push!(vs, vardict[arg]) for arg in pre.args]
             prop = fill_proposition(pre, vs)
             push!(pos, prop)
         end
@@ -173,12 +175,12 @@ function get_effects(domain, action, vars)
     for eff in action.effect.args 
         if eff.name == :not 
             vs = []
-            [push!(vs, Const(vardict[arg])) for arg in eff.args[1].args]
+            [push!(vs, vardict[arg]) for arg in eff.args[1].args]
             prop = fill_proposition(eff.args[1], vs)
             push!(neg, prop)
         else 
             vs = []
-            [push!(vs, Const(vardict[arg])) for arg in eff.args]
+            [push!(vs, vardict[arg]) for arg in eff.args]
             prop = fill_proposition(eff, vs)
             push!(pos, prop)
         end
@@ -291,8 +293,8 @@ function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
     if action.cont_effect != true
         # for ce in action.cont_effect.args
         # cexp = Meta.parse(ce.name)
-        funnel.end_region[Symbol("x"*string(var))] = cont_props[ind][:xr]
-        funnel.end_region[Symbol("y"*string(var))] = cont_props[ind][:yr]
+        funnel.end_region[Symbol("x"*string(var[1]))] = cont_props[ind][:xr]
+        funnel.end_region[Symbol("y"*string(var[1]))] = cont_props[ind][:yr]
     end
     return funnel
     
@@ -312,8 +314,9 @@ function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Ex
                 if satisfies_precondition(act, vs, contprop)
                     instantiated_action = instantiate_action(act, graph, domain, problem)
                     if !(instantiated_action in applicable_actions) push!(applicable_actions, instantiated_action) end
-                    if act.name == "pick" graph.indexes[2]+=1 end #++ placepose index
-                    if act.name == "place" graph.indexes[1]+=1 end #++ object index
+                    num_obs = length(problem.objects)
+                    if act.name == :pick && graph.indexes[2]<num_obs graph.indexes[2]+=1 end #++ placepose index
+                    if act.name == :place && graph.indexes[1]<num_obs graph.indexes[1]+=1 end #++ object index
                 end
             end
         end
