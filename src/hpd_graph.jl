@@ -57,8 +57,7 @@ function expand!(graph::Graph, domain::HPD.Parser.GenericDomain,
     graph.acts[k] = collect(Set(graph.acts[k]))
     graph.props[k+1][:discrete] = collect(Set(graph.props[k+1][:discrete]))
     graph.μacts[k] = get_action_mutexes(graph, k)
-    graph.num_levels +=1
-    if k+1==2 println(graph.props[k+1][:continuous]) end
+    graph.num_levels +=1 
     return graph
 end
 
@@ -268,6 +267,69 @@ function instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
         push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
     end
     cont_props = graph.props[graph.num_levels][:continuous]
+    funnel.cont_ind = ind 
+    if action.dynamics != true 
+        xr = contprop[:xr]; yr = contprop[:yr]
+        vxmin = graph.props[1][:continuous][1][:vxmin]
+        vxmax = graph.props[1][:continuous][1][:vxmax]
+        vymin = graph.props[1][:continuous][1][:vymin]
+        vymax = graph.props[1][:continuous][1][:vymax]
+        if isa(xr, Array)
+            xrmin = xr[1] + d*vxmin
+            xrmax = xr[2] + d*vxmax 
+            yrmin = yr[1] + d*vymin 
+            yrmax = yr[2] + d*vymax 
+        else
+            xrmin = xr + d*vxmin 
+            xrmax = xr + d*vxmax 
+            yrmin = yr + d*vymin 
+            yrmax = yr + d*vymax
+        end
+        funnel.end_region[:xr] = [xrmin, xrmax]
+        funnel.end_region[:yr] = [yrmin, yrmax]
+    else
+        funnel.end_region[:xr] = contprop[:xr]
+        funnel.end_region[:yr] = contprop[:yr]
+    end
+    #propagate other continuous values
+    for key in keys(contprop) 
+        if !(key in keys(funnel.end_region))
+            funnel.end_region[key] = contprop[key]
+        end
+    end
+    if action.cont_effect != true 
+        if action.name == :pick 
+            funnel.end_region[:xr] = contprop[Symbol("x"*string(var[1]))]   
+            funnel.end_region[:yr] = contprop[Symbol("y"*string(var[1]))]
+            # graph.props[graph.num_levels][:continuous] = [contprop]
+        elseif action.name == :place 
+            funnel.end_region[:xr] = contprop[:xg]  
+            funnel.end_region[:yr] = contprop[:yg]    
+            funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xg]   
+            funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yg] 
+            # graph.props[graph.num_levels][:continuous] = [contprop]
+        end  
+        if action.name == :move_holding 
+            funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
+            funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yr] 
+        end  
+    end
+    return funnel
+    
+end
+
+function working_instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
+    domain::HPD.Parser.GenericDomain, problem::HPD.Parser.GenericProblem, ind::Int, contprop)
+    funnel = Funnel(action.name)
+    d = 1.0
+    funnel.pos_prec, funnel.neg_prec, funnel.pos_eff, funnel.neg_eff, var = 
+                get_action_causal_fluents(action, graph, domain, problem)
+    if funnel.name == :pick || funnel.name == :place funnel.is_continuous = false end 
+    if funnel.name == :move funnel.params = [] else funnel.params = var end
+    if length(action.cont_precond.args)>0 
+        push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
+    end
+    cont_props = graph.props[graph.num_levels][:continuous]
     # ind = get_satisfying_index(action, var[1], cont_props)
     # ind = ind ? ind > 0 : 1
     if action.dynamics != true 
@@ -300,27 +362,27 @@ function instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
         end
     end
     if action.cont_effect != true
-        # for ce in action.cont_effect.args
-        # cexp = Meta.parse(ce.name)
-        # funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
-        # funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yr]
-        # if action.name == :pick
-        #     # if graph.num_levels == 2 println(" var name x"*string(var[1]), " ",contprop[Symbol("x"*string(var[1]))] , " ",contprop) end
-        #     cont_props[ind][:xr] = contprop[Symbol("x"*string(var[1]))]   
-        #     cont_props[ind][:yr] = contprop[Symbol("y"*string(var[1]))]
-        # elseif action.name == :place 
-        #     cont_props[ind][:xr] = contprop[:xg]  
-        #     cont_props[ind][:yr] = contprop[:yg]    
-        #     cont_props[ind][Symbol("x"*string(var[1]))] = contprop[:xg]   
-        #     cont_props[ind][Symbol("y"*string(var[1]))] = contprop[:yg] 
-        # end  
+    # for ce in action.cont_effect.args
+    # cexp = Meta.parse(ce.name)
+    # funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
+    # funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yr]
+    # if action.name == :pick
+    #     # if graph.num_levels == 2 println(" var name x"*string(var[1]), " ",contprop[Symbol("x"*string(var[1]))] , " ",contprop) end
+    #     cont_props[ind][:xr] = contprop[Symbol("x"*string(var[1]))]   
+    #     cont_props[ind][:yr] = contprop[Symbol("y"*string(var[1]))]
+    # elseif action.name == :place 
+    #     cont_props[ind][:xr] = contprop[:xg]  
+    #     cont_props[ind][:yr] = contprop[:yg]    
+    #     cont_props[ind][Symbol("x"*string(var[1]))] = contprop[:xg]   
+    #     cont_props[ind][Symbol("y"*string(var[1]))] = contprop[:yg] 
+    # end  
         if action.name == :move_holding 
             funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
             funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yr] 
         end  
     end
     return funnel
-    
+
 end
 
 function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Expr}, domain::HPD.Parser.GenericDomain,  problem::HPD.Parser.GenericProblem)

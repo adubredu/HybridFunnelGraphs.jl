@@ -34,8 +34,9 @@ mutable struct Funnel
     neg_eff 
     end_region 
     is_continuous
+    cont_ind 
     function Funnel(name)
-        new(name, [],[],[],[],[],[],[],Dict(),true)
+        new(name, [],[],[],[],[],[],[],Dict(),true, 1)
     end
 end 
 
