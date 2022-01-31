@@ -20,7 +20,7 @@ end
 
 function expand!(graph::Graph, domain::HPD.Parser.GenericDomain, 
     problem::HPD.Parser.GenericProblem, constraints)
-    k = graph.num_levels 
+    k = graph.num_levels ; println("level $k indexes $(graph.indexes)")
     if k ≥ 2 
         graph.μprops[k] = get_proposition_mutexes(graph, k)
     end
@@ -240,17 +240,20 @@ function get_satisfying_index(action, var, cont_props)
         box_vars = ["x"*string(var.name), "y"*string(var.name)]
         xo, yo = cont_prop[Symbol(box_vars[1])], cont_prop[Symbol(box_vars[2])]
         if isa(xr, Array) && isa(xo, Float64) 
-            if xr[1]<=xo<=xr[2] && yr[1]<=yo<=yr[2] return i end
+            if xr[1]<=xo<=xr[2] && yr[1]<=yo<=yr[2] return i end 
         elseif isa(xr, Array) && isa(xo, Array)
-            if xr[1]<=xo[1] && xo[2]<=xr[2] && yr[1]<=yo[1] && yo[2]<=yr[2] return i end
-        else fun = @eval (xr, yr, xo, yo) -> $precond_exp  end
-        if Base.invokelatest(fun, xr, yr, xo, yo) return i end 
+            if xr[1]<=xo[1] && xo[2]<=xr[2] && yr[1]<=yo[1] && yo[2]<=yr[2] return i end 
+        else 
+            fun = @eval (xr, yr, xg, yg) -> $precond_exp  
+            if Base.invokelatest(fun, xr, yr, xo, yo) return i end 
+        end
     end
     return -1
 end
 
 function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
-            domain::HPD.Parser.GenericDomain, problem::HPD.Parser.GenericProblem)
+            domain::HPD.Parser.GenericDomain, problem::HPD.Parser.GenericProblem,
+            ind::Int)
     funnel = Funnel(action.name)
     d = 1.0
     funnel.pos_prec, funnel.neg_prec, funnel.pos_eff, funnel.neg_eff, var = 
@@ -261,7 +264,8 @@ function instantiate_action(action::HPD.Parser.GenericAction, graph::Graph,
         push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
     end
     cont_props = graph.props[graph.num_levels][:continuous]
-    ind = get_satisfying_index(action, var[1], cont_props)
+    # ind = get_satisfying_index(action, var[1], cont_props)
+    # ind = ind ? ind > 0 : 1
     if action.dynamics != true 
         xr = cont_props[ind][:xr]; yr = cont_props[ind][:yr]
         vxmin = graph.props[1][:continuous][1][:vxmin]
@@ -304,24 +308,34 @@ function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Ex
     applicable_actions = []
     actions = collect(values(HPD.Parser.get_actions(domain))) 
     props = graph.props[level]
+    num_obs = length(problem.objects)
+    update_indexes!(graph, level, num_obs)
     for act in actions 
         fluents = get_action_causal_fluents(act, graph, domain, problem)
         pos_prec, neg_prec, pos_eff, neg_eff, vs = fluents  
         if issubset(pos_prec, props[:discrete]) 
-            for contprop in props[:continuous] 
+            for (ind,contprop) in enumerate(props[:continuous])
                 pose = get_placement_pose(graph, level, constraints) 
                 contprop[:xg] = pose[1]; contprop[:yg] = pose[2]
                 if satisfies_precondition(act, vs, contprop)
-                    instantiated_action = instantiate_action(act, graph, domain, problem)
+                    instantiated_action = instantiate_action(act, graph, domain, problem,ind)
                     if !(instantiated_action in applicable_actions) push!(applicable_actions, instantiated_action) end
-                    num_obs = length(problem.objects)
-                    if act.name == :pick && graph.indexes[2]<num_obs graph.indexes[2]+=1 end #++ placepose index
-                    if act.name == :place && graph.indexes[1]<num_obs graph.indexes[1]+=1 end #++ object index
+                    # num_obs = length(problem.objects)
+                    # if act.name == :pick && graph.indexes[2]<num_obs graph.indexes[2]+=1 end #++ placepose index
+                    # if act.name == :place && graph.indexes[1]<num_obs graph.indexes[1]+=1 end #++ object index
                 end
             end
         end
     end 
     return applicable_actions
+end
+
+function update_indexes!(graph::Graph, level::Int, num_obs::Int)
+    props = graph.props[level]
+    laid_fluent = Compound(:laid, [Const(Symbol("b"*string(graph.indexes[1])))])
+    if laid_fluent in props[:discrete] && graph.indexes[1] < num_obs
+        graph.indexes[1]+=1
+    end
 end
 
 function get_proposition_mutexes(graph::Graph, level::Int)
@@ -391,7 +405,7 @@ end
 #problem specific
 function get_placement_pose(graph::Graph, level::Int, constraints) 
     ls = get_poses_from_constraints(constraints)
-    return ls[graph.indexes[2]] 
+    return ls[graph.indexes[1]] 
 end 
 
 function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}) 
