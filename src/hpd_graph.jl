@@ -54,7 +54,7 @@ function expand!(graph::Graph, domain::HPD.Parser.GenericDomain,
             push!(graph.props[k+1][:continuous], cont)
         end
     end
-    graph.acts[k] = collect(Set(graph.acts[k]))
+    #graph.acts[k] = collect(Set(graph.acts[k]))
     graph.props[k+1][:discrete] = collect(Set(graph.props[k+1][:discrete]))
     graph.μacts[k] = get_action_mutexes(graph, k)
     graph.num_levels +=1 
