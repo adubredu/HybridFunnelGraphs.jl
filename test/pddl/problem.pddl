@@ -3,6 +3,6 @@
 
 (:init (handempty) (clear b1))
 
-(:goal (and (holding b1)  ))
+(:goal (and (handempty)  ))
  
 )

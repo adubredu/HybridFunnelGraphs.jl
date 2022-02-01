@@ -1,7 +1,10 @@
 # x(t+1) = A*x(t) + B*u(t)
 struct Dynamics 
     A 
-    B 
+    B
+    vx_range 
+    vy_range 
+    d
 end
 
 # ϕ₁*x + ϕ₂*y + ϕ₃*z ≥ -þ
@@ -15,22 +18,9 @@ end
 
 
 struct Region 
-    name::String
+    name 
     r::Vector{Ineq}
     θ::Float64
-end
-
-
-mutable struct DiscreteAction 
-    name
-    args
-    pos_prec 
-    neg_prec 
-    pos_eff 
-    neg_eff      
-    function Discrete_Action(name)
-        new(name, [], [], [], [], [])
-    end
 end
 
 mutable struct Funnel 
@@ -42,24 +32,13 @@ mutable struct Funnel
     dynamics 
     pos_eff 
     neg_eff 
+    end_region 
+    is_continuous
+    cont_ind 
     function Funnel(name)
-        new(name, [],[],[],[],[],[],[])
+        new(name, [],[],[],[],[],[],[],Dict(),true, 1)
     end
-
-end
-
-mutable struct NoOp  
-    name 
-    args
-    pos_prec 
-    neg_prec 
-    pos_eff 
-    neg_eff 
-    function NoOp(prop)
-        new(:NoOp, [], [prop], [], [prop], [])
-    end
-end
-
+end 
 
 mutable struct Graph 
     num_levels::Int64 
@@ -69,9 +48,9 @@ mutable struct Graph
     μprops 
     leveled 
     initprops 
-    goalprops 
+    goalprops
+    indexes #[object_index, place_pose_index]
     function Graph()
-        new(0, Dict(1=>[]), Dict(1=>[]),  Dict(1=>[]), Dict(1=>Dict()), 
-        false, [], [])
+        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, Dict(), Dict(), [1,1])
     end
 end
