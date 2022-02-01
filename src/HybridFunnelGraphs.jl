@@ -11,7 +11,8 @@ include("hpd_graph.jl")
 
 export create_funnel_graph,
         get_preconditions,
-        get_effects
+        get_effects,
+        Graph
 #        Region,
 #        intersects
 end
