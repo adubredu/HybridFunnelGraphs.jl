@@ -20,7 +20,7 @@ end
 
 function expand!(graph::Graph, domain::HPD.Parser.GenericDomain, 
     problem::HPD.Parser.GenericProblem, constraints)
-    k = graph.num_levels ; println("level $k indexes $(graph.indexes)")
+    k = graph.num_levels #; println("level $k indexes $(graph.indexes)")
     if k ≥ 2 
         graph.μprops[k] = get_proposition_mutexes(graph, k)
     end
