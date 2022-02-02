@@ -1,5 +1,6 @@
+# action layer max length == 99 
 import Base: == 
-==(f1::Funnel, f2::Funnel) = f1.name == f2.name && f1.end_region[:yr] == f2.end_region[:yr] && f1.end_region[:xr] == f2.end_region[:xr]
+==(f1::Funnel, f2::Funnel) = f1.name == f2.name && f1.end_region == f2.end_region
 function create_funnel_graph(domain_name::String, problem_name::String; max_levels=10)
     graph = Graph()
     domain = load_domain(domain_name)
@@ -20,7 +21,7 @@ end
 
 function expand!(graph::Graph, domain::HPD.Parser.GenericDomain, 
     problem::HPD.Parser.GenericProblem, constraints)
-    k = graph.num_levels  
+    k = graph.num_levels ; print("level $k indexes $(graph.indexes) ")
     if k ≥ 2 
         graph.μprops[k] = get_proposition_mutexes(graph, k)
     end
@@ -38,21 +39,29 @@ function expand!(graph::Graph, domain::HPD.Parser.GenericDomain,
             push!(graph.props[k+1][:discrete], propositions[:discrete]...)
         end
         if !isempty(propositions[:continuous])
-            if k>1 && !action_in_prev(graph, act, k) && (act.name == :pick || act.name == :place) 
+            if k>1 && !action_in_prev(graph, act, k) && (act.name == :pick || act.name == :place)
+                println("Level $(k+1) should have 1 cont ",propositions[:continuous])
                 graph.props[k+1][:continuous]=propositions[:continuous]
                 repped = true
-            elseif !repped && !(propositions[:continuous][1] in graph.props[k][:continuous]) 
+            elseif !repped  
+                # println("not here")
                 push!(graph.props[k+1][:continuous], propositions[:continuous]...)
             end
         end
         push!(action_list, act)
-    end
-    graph.acts[k] = collect(Set(graph.acts[k])) 
+    end 
+    println(" Num actions: $(length(graph.acts[k]))")
     for prop in graph.props[k][:discrete]
         noop = get_noop_action(prop)
         push!(graph.acts[k], noop)
         push!(graph.props[k+1][:discrete], prop)
-    end 
+    end
+    # for cont in graph.props[k][:continuous]
+    #     if !(cont in graph.props[k+1][:continuous])
+    #         push!(graph.props[k+1][:continuous], cont)
+    #     end
+    # end
+    #graph.acts[k] = collect(Set(graph.acts[k]))
     graph.props[k+1][:discrete] = collect(Set(graph.props[k+1][:discrete]))
     graph.props[k+1][:continuous] = collect(Set(graph.props[k+1][:continuous]))
     graph.μacts[k] = get_action_mutexes(graph, k)
@@ -106,7 +115,13 @@ function goal_reached(graph::Graph, domain::HPD.Parser.GenericDomain,
     μprops = graph.μprops[index]
     goal_found = false
     if issubset(goals[:discrete], props[:discrete])
-        goal_found = true  
+        goal_found = true 
+        # for goal_pair in collect(permutations(goals[:discrete], 2))
+        #     if goal_pair in μprops 
+        #         goal_found = false 
+        #         break 
+        #     end
+        # end
     elseif index > 1 && graph.props[index-1] == props 
         graph.leveled = true
     end
@@ -126,7 +141,7 @@ function in_region(subregion , region )
     for k in keys(subregion)
         if isa(subregion[k], Float64) && isa(region[k], Float64)
             if subregion[k] != region[k] return false end 
-        elseif isa(subregion[k], Float64) && isa(region[k], Array)  
+        elseif isa(subregion[k], Float64) && isa(region[k], Array) #println("2inhere");
             if !(region[k][1] < subregion[k] < region[k][2]) return false; end 
         elseif isa(subregion[k], Array) && isa(region[k], Array)
             if subregion[k][2] < region[k][1] || region[k][2] < subregion[k][1]
@@ -140,7 +155,8 @@ function in_region(subregion , region )
 end
 
 function get_external_constraints(domain::HPD.Parser.GenericDomain, 
-    problem::HPD.Parser.GenericProblem) 
+    problem::HPD.Parser.GenericProblem)
+    # ext_consts = [Meta.parse(replace(c.name,"&"=>";")) for c in problem.external_constraints.args]
     ext_consts = [Meta.parse(c.name) for c in problem.external_constraints.args]
     return ext_consts
 end
@@ -200,21 +216,27 @@ function get_action_causal_fluents(act::HPD.Parser.GenericAction,
     pos_eff, neg_eff = get_effects(domain, act, [ob])
     return pos_prec, neg_prec, pos_eff, neg_eff, [ob] 
 end
- 
+
+# make more general
+# only works with one object
 function satisfies_precondition(action, vars, cont_prop)
     if action.name == :move || action.name == :move_holding  return true end
     var = vars[1]
-    string_exp = action.cont_precond.args[1].name 
-    precond_exp = Meta.parse(string_exp) 
+    string_exp = action.cont_precond.args[1].name
+    # string_exp = replace(string_exp, "xo"=>string(var.name))
+    precond_exp = Meta.parse(string_exp)
+    # τ = precond_exp.args[3] 
     if action.name == :pick 
         xr, yr = cont_prop[:xr], cont_prop[:yr]
         box_vars = ["x"*string(var.name), "y"*string(var.name)] 
-        xo, yo = cont_prop[Symbol(box_vars[1])], cont_prop[Symbol(box_vars[2])] 
+        xo, yo = cont_prop[Symbol(box_vars[1])], cont_prop[Symbol(box_vars[2])]
+        # println(xr," ",yr)
         if isa(xr, Array) && isa(xo, Float64) 
             return xr[1]<=xo<=xr[2] && yr[1]<=yo<=yr[2]
         elseif isa(xr, Float64) && isa(xo, Array) 
             return xo[1]<=xr<=xo[2] && yo[1]<=yr<=yo[2] 
-        elseif isa(xr, Array) && isa(xo, Array) 
+        elseif isa(xr, Array) && isa(xo, Array)
+            # println("shouldn't happen") 
             return xr[1]<=xo[1] && xo[2]<=xr[2] && yr[1]<=yo[1] && yo[2]<=yr[2]             
         else 
             fun = @eval (xr, yr, xo, yo) -> $precond_exp 
@@ -260,7 +282,8 @@ function instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
     if funnel.name == :move funnel.params = [] else funnel.params = var end
     if length(action.cont_precond.args)>0 
         push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
-    end 
+    end
+    cont_props = graph.props[graph.num_levels][:continuous]
     funnel.cont_ind = ind 
     if action.dynamics != true 
         xr = contprop[:xr]; yr = contprop[:yr]
@@ -294,12 +317,14 @@ function instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
     if action.cont_effect != true 
         if action.name == :pick 
             funnel.end_region[:xr] = contprop[Symbol("x"*string(var[1]))]   
-            funnel.end_region[:yr] = contprop[Symbol("y"*string(var[1]))] 
+            funnel.end_region[:yr] = contprop[Symbol("y"*string(var[1]))]
+            # graph.props[graph.num_levels][:continuous] = [contprop]
         elseif action.name == :place 
             funnel.end_region[:xr] = contprop[:xg]  
             funnel.end_region[:yr] = contprop[:yg]    
             funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xg]   
-            funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yg]  
+            funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yg] 
+            # graph.props[graph.num_levels][:continuous] = [contprop]
         end  
         if action.name == :move_holding 
             funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
@@ -321,7 +346,9 @@ function working_instantiate_action!(action::HPD.Parser.GenericAction, graph::Gr
     if length(action.cont_precond.args)>0 
         push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
     end
-    cont_props = graph.props[graph.num_levels][:continuous] 
+    cont_props = graph.props[graph.num_levels][:continuous]
+    # ind = get_satisfying_index(action, var[1], cont_props)
+    # ind = ind ? ind > 0 : 1
     if action.dynamics != true 
         xr = contprop[:xr]; yr = contprop[:yr]
         vxmin = graph.props[1][:continuous][1][:vxmin]
@@ -351,7 +378,21 @@ function working_instantiate_action!(action::HPD.Parser.GenericAction, graph::Gr
             funnel.end_region[key] = contprop[key]
         end
     end
-    if action.cont_effect != true 
+    if action.cont_effect != true
+    # for ce in action.cont_effect.args
+    # cexp = Meta.parse(ce.name)
+    # funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
+    # funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yr]
+    # if action.name == :pick
+    #     # if graph.num_levels == 2 println(" var name x"*string(var[1]), " ",contprop[Symbol("x"*string(var[1]))] , " ",contprop) end
+    #     cont_props[ind][:xr] = contprop[Symbol("x"*string(var[1]))]   
+    #     cont_props[ind][:yr] = contprop[Symbol("y"*string(var[1]))]
+    # elseif action.name == :place 
+    #     cont_props[ind][:xr] = contprop[:xg]  
+    #     cont_props[ind][:yr] = contprop[:yg]    
+    #     cont_props[ind][Symbol("x"*string(var[1]))] = contprop[:xg]   
+    #     cont_props[ind][Symbol("y"*string(var[1]))] = contprop[:yg] 
+    # end  
         if action.name == :move_holding 
             funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xr]
             funnel.end_region[Symbol("y"*string(var[1]))] = contprop[:yr] 
@@ -374,46 +415,23 @@ function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Ex
             for (ind,contprop) in enumerate(props[:continuous])
                 pose = get_placement_pose(graph, level, constraints) 
                 contprop[:xg] = pose[1]; contprop[:yg] = pose[2]
-                if satisfies_precondition(act, vs, contprop)  
+                if satisfies_precondition(act, vs, contprop) #same action can satisfy multiple contprobs
                     instantiated_action = instantiate_action!(act, graph, domain, problem,ind,contprop)
-                    if !(instantiated_action in applicable_actions) 
-                            push!(applicable_actions, instantiated_action) 
-                    end 
+                    if !(instantiated_action in applicable_actions)
+                        # if level <=2
+                        #     push!(applicable_actions, instantiated_action)
+                        # elseif level > 2 && !(instantiated_action in graph.acts[level-2])
+                            push!(applicable_actions, instantiated_action)
+                        # end 
+                    end
+                    # num_obs = length(problem.objects)
+                    # if act.name == :pick && graph.indexes[2]<num_obs graph.indexes[2]+=1 end #++ placepose index
+                    # if act.name == :place && graph.indexes[1]<num_obs graph.indexes[1]+=1 end #++ object index
                 end
             end
         end
-    end  
-    applicable_actions = prune_funnels(applicable_actions) 
+    end 
     return applicable_actions
-end
-
-function int_range(funnel::Union{Funnel, Nothing})
-    if isnothing(funnel) return -99 end
-    array = funnel.end_region[:yr]
-    return array[2]-array[1]
-end
-
-function prune_funnels(applicable_actions::Vector{Any})
-    pruned_actions = []
-    fun_dicts = Dict(:move=>[], :move_holding=>[], :pick=>[], :place=>[])
-    for action in applicable_actions push!(fun_dicts[action.name], action) end
-    for key in keys(fun_dicts)
-        if !isempty(fun_dicts[key])
-            max_fun = nothing
-            dim1 = []
-            for act in fun_dicts[key]
-                if isa(act.end_region[:yr], Array) 
-                    if int_range(act) > int_range(max_fun) max_fun = act  end
-                else
-                    push!(dim1, act)
-                end
-            end
-            fun_dicts[key] = [max_fun, dim1...]
-        end
-    end
-    pruned_actions = reduce(vcat, collect(values(fun_dicts)))
-    filter!(x->x !== nothing, pruned_actions)
-    return pruned_actions
 end
 
 function update_indexes!(graph::Graph, level::Int, num_obs::Int)
@@ -513,4 +531,25 @@ function get_poses_from_constraints(exps::Vector{Expr})
         get_pose_from_fxn!(exp, ls) 
     end
     return collect(Set(ls)) 
-end 
+end
+
+
+# function get_pose_from_fxn(exp) 
+#     xs = 0.0:0.1:5
+#     ys = 0.0:0.1:5
+#     ls = [] 
+#     for xg in xs 
+#         for yg in ys 
+#             @eval f(xg, yg)=$exp  
+#             if f(xg, yg) 
+#                 push!(ls, (xg, yg))
+#             end
+#         end
+#     end
+#     return ls
+# end
+
+# box_vars = ["x"*string(var.name), "y"*string(var.name)]
+#         for xb = box_vars
+#             @eval $xb = cont_prob[Symbol(xb)]
+#         end
