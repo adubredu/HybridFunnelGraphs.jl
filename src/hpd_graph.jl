@@ -372,7 +372,7 @@ function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Ex
         pos_prec, neg_prec, pos_eff, neg_eff, vs = fluents  
         if issubset(pos_prec, props[:discrete]) 
             for (ind,contprop) in enumerate(props[:continuous])
-                pose = get_placement_pose(graph, level, constraints) 
+                pose = get_placement_pose(graph, constraints) 
                 contprop[:xg] = pose[1]; contprop[:yg] = pose[2]
                 if satisfies_precondition(act, vs, contprop)  
                     instantiated_action = instantiate_action!(act, graph, domain, problem,ind,contprop)
@@ -492,14 +492,19 @@ function get_external_constraint(graph::Graph, level::Int, constraints)
 end
 
 #problem specific
-function get_placement_pose(graph::Graph, level::Int, constraints) 
-    ls = get_poses_from_constraints(constraints)
+function get_placement_pose(graph::Graph, constraints) 
+    ls = get_poses_from_constraints(constraints, graph)
     return ls[graph.indexes[1]] 
 end 
 
-function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}) 
-    xs = 0.0:0.1:5
-    ys = 0.0:0.1:5 
+function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}, graph::Graph) 
+    xmin = graph.initprops[:continuous][1][:xbmin]
+    ymin = graph.initprops[:continuous][1][:ybmin]
+    xmax = graph.initprops[:continuous][1][:xbmax]
+    ymax = graph.initprops[:continuous][1][:ybmax]
+    Δ = graph.initprops[:continuous][1][:bdelta]
+    xs = xmin:Δ:xmax
+    ys = ymin:Δ:ymax 
     fun = @eval (xg, yg) -> $exp
     for x in xs 
         for y in ys  
@@ -510,10 +515,10 @@ function get_pose_from_fxn!(exp::Expr, ls::Vector{Any})
     end  
 end
 
-function get_poses_from_constraints(exps::Vector{Expr})
+function get_poses_from_constraints(exps::Vector{Expr}, graph::Graph)
     ls = []
     for exp in exps 
-        get_pose_from_fxn!(exp, ls) 
+        get_pose_from_fxn!(exp, ls, graph) 
     end
     return collect(Set(ls)) 
 end 
