@@ -1,3 +1,4 @@
+# fully functional. no known issues
 import Base: == 
 ==(f1::Funnel, f2::Funnel) = f1.name == f2.name && f1.end_region[:yr] == f2.end_region[:yr] && f1.end_region[:xr] == f2.end_region[:xr]
 function create_funnel_graph(domain_name::String, problem_name::String; max_levels=10)
