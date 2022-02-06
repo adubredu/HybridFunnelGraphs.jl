@@ -402,6 +402,9 @@ function prune_funnels(applicable_actions::Vector{Any})
             max_fun = nothing
             dim1 = []
             for act in fun_dicts[key]
+                if isa(act.end_region[:yr], Array) && (act.name == :pick || act.name == :place)
+                    continue 
+                end
                 if isa(act.end_region[:yr], Array) 
                     if int_range(act) > int_range(max_fun) max_fun = act  end
                 else
