@@ -50,7 +50,8 @@ mutable struct Graph
     initprops 
     goalprops
     indexes #[object_index, place_pose_index]
+    safe_poses
     function Graph()
-        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, Dict(), Dict(), [1,1])
+        new(0, Dict(1=>[]), Dict(1=>[]), Dict(1=>Dict()),  Dict(1=>[]), false, Dict(), Dict(), [1,1],[])
     end
 end

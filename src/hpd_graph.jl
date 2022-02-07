@@ -9,6 +9,7 @@ function create_funnel_graph(domain_name::String, problem_name::String; max_leve
     graph.props[1] = init_propositions
     graph.initprops = init_propositions
     graph.goalprops = get_goal_propositions(domain, problem)
+    generate_safe_poses!(graph)
     graph.num_levels = 1
 
     for _=1:max_levels
@@ -488,19 +489,25 @@ function get_external_constraint(graph::Graph, level::Int, constraints)
     return constraints #[graph.indexes[1]]
 end
  
-function get_placement_pose(graph::Graph, constraints) 
-    ls = get_poses_from_constraints(constraints, graph)
-    return ls[graph.indexes[1]] 
-end 
-
-function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}, graph::Graph) 
+function generate_safe_poses!(graph::Graph)
     xmin = graph.initprops[:continuous][1][:xbmin]
     ymin = graph.initprops[:continuous][1][:ybmin]
     xmax = graph.initprops[:continuous][1][:xbmax]
     ymax = graph.initprops[:continuous][1][:ybmax]
     Δ = graph.initprops[:continuous][1][:bdelta]
     xs = xmin:Δ:xmax
-    ys = ymin:Δ:ymax 
+    ys = ymin:Δ:ymax
+    graph.safe_poses = [xs, ys]
+end
+
+function get_placement_pose(graph::Graph, constraints) 
+    ls = get_poses_from_constraints(constraints, graph)
+    return ls[graph.indexes[1]] 
+end 
+
+function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}, graph::Graph) 
+    xs = graph.safe_poses[1]
+    ys = graph.safe_poses[2]
     fun = @eval (xg, yg) -> $exp
     for x in xs 
         for y in ys  
