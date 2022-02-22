@@ -1,6 +1,7 @@
 import Base: == 
 ==(f1::Funnel, f2::Funnel) = f1.name == f2.name && f1.end_region[:yr] == f2.end_region[:yr] && f1.end_region[:xr] == f2.end_region[:xr]
-function create_funnel_graph(domain_name::String, problem_name::String; max_levels=10)
+function create_funnel_graph(domain_name::String, problem_name::String; 
+    max_levels=10, has_placement_constraint=true)
     graph = Graph()
     domain = load_domain(domain_name)
     problem = load_problem(problem_name)
@@ -9,6 +10,7 @@ function create_funnel_graph(domain_name::String, problem_name::String; max_leve
     graph.props[1] = init_propositions
     graph.initprops = init_propositions
     graph.goalprops = get_goal_propositions(domain, problem)
+    graph.has_placement_constraint = has_placement_constraint
     generate_safe_poses!(graph)
     graph.num_levels = 1
 
@@ -371,7 +373,7 @@ function get_applicable_actions(graph::Graph, level::Int, constraints::Vector{Ex
         pos_prec, neg_prec, pos_eff, neg_eff, vs = fluents  
         if issubset(pos_prec, props[:discrete]) 
             for (ind,contprop) in enumerate(props[:continuous])
-                pose = get_placement_pose(graph, constraints) 
+                pose = get_placement_pose(graph, constraints, vs) 
                 contprop[:xg] = pose[1]; contprop[:yg] = pose[2]
                 if satisfies_precondition(act, vs, contprop)  
                     instantiated_action = instantiate_action!(act, graph, domain, problem,ind,contprop)
@@ -420,7 +422,8 @@ end
 
 function update_indexes!(graph::Graph, level::Int, num_obs::Int)
     props = graph.props[level]
-    laid_fluent = Compound(:laid, [Const(Symbol("b"*string(graph.indexes[1])))])
+    if graph.has_placement_constraint donesymb = :laid else donesymb = :stocked end
+    laid_fluent = Compound(donesymb, [Const(Symbol("b"*string(graph.indexes[1])))])
     if laid_fluent in props[:discrete] && graph.indexes[1] < num_obs
         graph.indexes[1]+=1
     end
@@ -500,9 +503,18 @@ function generate_safe_poses!(graph::Graph)
     graph.safe_poses = [xs, ys]
 end
 
-function get_placement_pose(graph::Graph, constraints) 
-    ls = get_poses_from_constraints(constraints, graph)
-    return ls[graph.indexes[1]] 
+function get_placement_pose(graph::Graph, constraints, vs)
+    if graph.has_placement_constraint 
+        ls = get_poses_from_constraints(constraints, graph)
+        return ls[graph.indexes[1]] 
+    else
+        ob = vs[1].name 
+        kx = Symbol("x"*string(ob))
+        ky = Symbol("y"*string(ob))
+        goal_pose = [graph.goalprops[:continuous][kx], 
+                graph.goalprops[:continuous][ky]]
+        return goal_pose
+    end
 end 
 
 function get_pose_from_fxn!(exp::Expr, ls::Vector{Any}, graph::Graph) 
