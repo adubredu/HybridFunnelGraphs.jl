@@ -20,7 +20,7 @@ path = joinpath(dirname(pathof(HybridFunnelGraphs)), "..", "test/hpd")
 domain_path = joinpath(path, "domain.hpd")
 problem_path = joinpath(path, "problem.hpd")
 
-#creates a Hybrid Funnel Graph from .hpd files
+#creates a Hybrid Funnel Graph struct from .hpd files
 graph = create_funnel_graph(domain_path, problem_path)
 ```
 
