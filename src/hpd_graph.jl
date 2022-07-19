@@ -41,7 +41,7 @@ function expand!(graph::Graph, domain::HPD.Parser.GenericDomain,
             push!(graph.props[k+1][:discrete], propositions[:discrete]...)
         end
         if !isempty(propositions[:continuous])
-            if k>1 && !action_in_prev(graph, act, k) && (act.name == :pick || act.name == :place) 
+            if k>1 && !action_in_prev(graph, act, k) && (act.name == :pick || act.name == :place || act.name == :throw) 
                 graph.props[k+1][:continuous]=propositions[:continuous]
                 repped = true
             elseif !repped && !(propositions[:continuous][1] in graph.props[k][:continuous]) 
@@ -223,7 +223,7 @@ function satisfies_precondition(action, vars, cont_prop)
             fun = @eval (xr, yr, xo, yo) -> $precond_exp 
         end
         if Base.invokelatest(fun, xr, yr, xo, yo) return true end 
-    elseif action.name == :place
+    elseif action.name == :place || action.name == :throw
         xr, yr = cont_prop[:xr], cont_prop[:yr]
         xg, yg = cont_prop[:xg], cont_prop[:yg]
         if isa(xr, Array) func(xr,yr,xg, yg) = xr[1]<=xg<=xr[2] && yr[1]<=yg<=yr[2]
@@ -259,7 +259,7 @@ function instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
     d = 1.0
     funnel.pos_prec, funnel.neg_prec, funnel.pos_eff, funnel.neg_eff, var = 
                     get_action_causal_fluents(action, graph, domain, problem)
-    if funnel.name == :pick || funnel.name == :place funnel.is_continuous = false end 
+    if funnel.name == :pick || funnel.name == :place || funnel.name == :throw funnel.is_continuous = false end 
     if funnel.name == :move funnel.params = [] else funnel.params = var end
     if length(action.cont_precond.args)>0 
         push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
@@ -298,7 +298,7 @@ function instantiate_action!(action::HPD.Parser.GenericAction, graph::Graph,
         if action.name == :pick 
             funnel.end_region[:xr] = contprop[Symbol("x"*string(var[1]))]   
             funnel.end_region[:yr] = contprop[Symbol("y"*string(var[1]))] 
-        elseif action.name == :place 
+        elseif action.name == :place || action.name == :throw
             funnel.end_region[:xr] = contprop[:xg]  
             funnel.end_region[:yr] = contprop[:yg]    
             funnel.end_region[Symbol("x"*string(var[1]))] = contprop[:xg]   
@@ -318,7 +318,7 @@ function working_instantiate_action!(action::HPD.Parser.GenericAction, graph::Gr
     d = 1.0
     funnel.pos_prec, funnel.neg_prec, funnel.pos_eff, funnel.neg_eff, var = 
                 get_action_causal_fluents(action, graph, domain, problem)
-    if funnel.name == :pick || funnel.name == :place funnel.is_continuous = false end 
+    if funnel.name == :pick || funnel.name == :place  || funnel.name == :throw funnel.is_continuous = false end 
     if funnel.name == :move funnel.params = [] else funnel.params = var end
     if length(action.cont_precond.args)>0 
         push!(funnel.continuous_prec, Meta.parse(action.cont_precond.args[1].name)) 
@@ -396,14 +396,14 @@ end
 
 function prune_funnels(applicable_actions::Vector{Any})
     pruned_actions = []
-    fun_dicts = Dict(:move=>[], :move_holding=>[], :pick=>[], :place=>[])
+    fun_dicts = Dict(:move=>[], :move_holding=>[], :pick=>[], :place=>[], :throw=>[])
     for action in applicable_actions push!(fun_dicts[action.name], action) end
     for key in keys(fun_dicts)
         if !isempty(fun_dicts[key])
             max_fun = nothing
             dim1 = []
             for act in fun_dicts[key]
-                if isa(act.end_region[:yr], Array) && (act.name == :pick || act.name == :place)
+                if isa(act.end_region[:yr], Array) && (act.name == :pick || act.name == :place || act.name == :throw)
                     continue 
                 end
                 if isa(act.end_region[:yr], Array) 
